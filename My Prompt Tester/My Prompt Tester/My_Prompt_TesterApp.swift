@@ -28,5 +28,9 @@ struct My_Prompt_TesterApp: App {
             ContentView()
         }
         .modelContainer(sharedModelContainer)
+        #if os(macOS)
+        // Let the window follow the content’s ideal size (macOS 14+).
+        .windowResizability(.contentSize)
+        #endif
     }
 }

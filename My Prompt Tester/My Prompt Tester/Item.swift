@@ -11,8 +11,12 @@ import SwiftData
 @Model
 final class Item {
     var timestamp: Date
+    var prompt: String
+    var aiAnswer: String
     
-    init(timestamp: Date) {
+    init(timestamp: Date, prompt: String, aiAnswer: String) {
         self.timestamp = timestamp
+        self.prompt = prompt
+        self.aiAnswer = aiAnswer
     }
 }
