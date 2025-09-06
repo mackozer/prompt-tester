@@ -26,28 +26,54 @@ struct HistoryView: View {
                             NavigationLink {
                                 HistoryDetailView(item: item)
                             } label: {
-                                VStack(alignment: .leading, spacing: 6) {
-                                    // Prompt preview (multiline)
-                                    Text(item.prompt)
-                                        .font(.headline)
-                                        .lineLimit(nil) // allow unlimited lines
-                                        .fixedSize(horizontal: false, vertical: true)
+                                HStack(alignment: .top, spacing: 12) {
+                                    VStack(alignment: .leading, spacing: 6) {
+                                        // Prompt preview (multiline)
+                                        Text(item.prompt)
+                                            .font(.headline)
+                                            .lineLimit(nil) // allow unlimited lines
+                                            .fixedSize(horizontal: false, vertical: true)
+                                        
+                                        // Answer preview (multiline)
+                                        Text(item.aiAnswer)
+                                            .font(.subheadline)
+                                            .foregroundStyle(.secondary)
+                                            .lineLimit(nil) // allow unlimited lines
+                                            .fixedSize(horizontal: false, vertical: true)
+                                        
+                                        // Timestamp
+                                        Text(item.timestamp, format: Date.FormatStyle(date: .abbreviated, time: .shortened))
+                                            .font(.caption)
+                                            .foregroundStyle(.tertiary)
+                                    }
+                                    .padding(.vertical, 8)
                                     
-                                    // Answer preview (multiline)
-                                    Text(item.aiAnswer)
-                                        .font(.subheadline)
-                                        .foregroundStyle(.secondary)
-                                        .lineLimit(nil) // allow unlimited lines
-                                        .fixedSize(horizontal: false, vertical: true)
+                                    Spacer(minLength: 8)
                                     
-                                    // Timestamp
-                                    Text(item.timestamp, format: Date.FormatStyle(date: .abbreviated, time: .shortened))
-                                        .font(.caption)
-                                        .foregroundStyle(.tertiary)
+                                    // Visible copy button in the row
+                                    Button {
+                                        _ = ClipboardManager.copy(from: item)
+                                    } label: {
+                                        Image(systemName: "doc.on.doc")
+                                            .imageScale(.medium)
+                                            .accessibilityLabel("Copy")
+                                    }
+                                    .buttonStyle(.borderless)
+                                    .help("Copy prompt and answer")
                                 }
-                                .padding(.vertical, 8)
                             }
                             .listRowInsets(EdgeInsets(top: 8, leading: 12, bottom: 8, trailing: 12))
+                            #if os(iOS)
+                            // iOS swipe action for quick copy
+                            .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                                Button {
+                                    _ = ClipboardManager.copy(from: item)
+                                } label: {
+                                    Label("Copy", systemImage: "doc.on.doc")
+                                }
+                                .tint(.blue)
+                            }
+                            #endif
                         }
                         .onDelete(perform: deleteItems)
                     }
@@ -100,6 +126,17 @@ private struct HistoryDetailView: View {
                         .padding()
                         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8))
                 }
+                
+                // Copy button in detail as well for convenience
+                HStack {
+                    Spacer()
+                    Button {
+                        _ = ClipboardManager.copy(from: item)
+                    } label: {
+                        Label("Copy", systemImage: "doc.on.doc")
+                    }
+                    .buttonStyle(.bordered)
+                }
             }
             .padding()
         }
@@ -128,3 +165,4 @@ private struct HistoryDetailView: View {
     return HistoryView()
         .modelContainer(container)
 }
+

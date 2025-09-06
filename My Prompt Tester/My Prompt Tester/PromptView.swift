@@ -9,6 +9,14 @@ import SwiftUI
 import SwiftData
 import FoundationModels
 
+#if canImport(UIKit)
+import UIKit
+#endif
+
+#if os(macOS)
+import AppKit
+#endif
+
 struct PromptView: View {
     @Environment(\.modelContext) private var modelContext
 
@@ -76,7 +84,7 @@ struct PromptView: View {
                             .stroke(Color.secondary.opacity(0.2))
                     )
 
-                // Save button under the answer
+                // Save and Copy buttons under the answer
                 HStack {
                     Button {
                         saveTapped()
@@ -85,7 +93,16 @@ struct PromptView: View {
                     }
                     .buttonStyle(.bordered)
                     .disabled(aiAnswer == nil)
+
                     Spacer()
+
+                    Button {
+                        copyTapped()
+                    } label: {
+                        Label("Copy", systemImage: "doc.on.doc")
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(!canCopy)
                 }
             }
         }
@@ -94,6 +111,12 @@ struct PromptView: View {
         #if os(macOS)
         .fixedSize(horizontal: false, vertical: false)
         #endif
+    }
+
+    private var canCopy: Bool {
+        let trimmedPrompt = promptText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedAnswer = aiAnswer?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return !trimmedPrompt.isEmpty && !trimmedAnswer.isEmpty
     }
 
     private func submitTapped() {
@@ -146,6 +169,11 @@ struct PromptView: View {
         )
         modelContext.insert(item)
     }
+
+    private func copyTapped() {
+        guard let answer = aiAnswer else { return }
+        _ = ClipboardManager.copy(prompt: promptText, answer: answer)
+    }
 }
 
 private extension View {
@@ -175,3 +203,4 @@ struct PromptResponse {
     @Guide(description: "Motivation for a dog to reach the goal in a session of training to fight dog separation anxiety")
     var slogan: String
 }
+
