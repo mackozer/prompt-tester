@@ -69,6 +69,10 @@ struct PromptView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(isSubmitting || promptText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                #if os(macOS)
+                // Add Command + Return shortcut on macOS
+                .keyboardShortcut(.return, modifiers: [.command])
+                #endif
             }
 
             // AI Answer area always visible with a compact fixed height
@@ -203,4 +207,3 @@ struct PromptResponse {
     @Guide(description: "Motivation for a dog to reach the goal in a session of training to fight dog separation anxiety")
     var slogan: String
 }
-

@@ -13,6 +13,9 @@ struct HistoryView: View {
     // Fetch newest first
     @Query(sort: \Item.timestamp, order: .reverse) private var items: [Item]
     
+    @State private var itemPendingDeletion: Item? = nil
+    @State private var isShowingDeleteAlert: Bool = false
+
     var body: some View {
         NavigationStack {
             Group {
@@ -60,11 +63,23 @@ struct HistoryView: View {
                                     }
                                     .buttonStyle(.borderless)
                                     .help("Copy prompt and answer")
+
+                                    // Visible delete button in the row
+                                    Button(role: .destructive) {
+                                        itemPendingDeletion = item
+                                        isShowingDeleteAlert = true
+                                    } label: {
+                                        Image(systemName: "trash")
+                                            .imageScale(.medium)
+                                            .accessibilityLabel("Delete")
+                                    }
+                                    .buttonStyle(.borderless)
+                                    .help("Delete this history item")
                                 }
                             }
                             .listRowInsets(EdgeInsets(top: 8, leading: 12, bottom: 8, trailing: 12))
                             #if os(iOS)
-                            // iOS swipe action for quick copy
+                            // iOS swipe actions for quick copy and delete
                             .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                                 Button {
                                     _ = ClipboardManager.copy(from: item)
@@ -72,9 +87,17 @@ struct HistoryView: View {
                                     Label("Copy", systemImage: "doc.on.doc")
                                 }
                                 .tint(.blue)
+
+                                Button(role: .destructive) {
+                                    itemPendingDeletion = item
+                                    isShowingDeleteAlert = true
+                                } label: {
+                                    Label("Delete", systemImage: "trash")
+                                }
                             }
                             #endif
                         }
+                        // Retain existing bulk delete via edit mode if desired
                         .onDelete(perform: deleteItems)
                     }
                 }
@@ -85,6 +108,17 @@ struct HistoryView: View {
                 EditButton()
             }
             #endif
+            .alert("Delete this item?", isPresented: $isShowingDeleteAlert, presenting: itemPendingDeletion) { item in
+                Button("Cancel", role: .cancel) {
+                    itemPendingDeletion = nil
+                }
+                Button("Delete", role: .destructive) {
+                    delete(item: item)
+                    itemPendingDeletion = nil
+                }
+            } message: { item in
+                Text("This action cannot be undone.")
+            }
         }
     }
     
@@ -93,6 +127,12 @@ struct HistoryView: View {
             for index in offsets {
                 modelContext.delete(items[index])
             }
+        }
+    }
+
+    private func delete(item: Item) {
+        withAnimation {
+            modelContext.delete(item)
         }
     }
 }
@@ -165,4 +205,3 @@ private struct HistoryDetailView: View {
     return HistoryView()
         .modelContainer(container)
 }
-
