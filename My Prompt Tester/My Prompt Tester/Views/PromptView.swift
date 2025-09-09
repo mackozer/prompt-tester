@@ -21,6 +21,7 @@ struct PromptView: View {
     @Environment(\.modelContext) private var modelContext
 
     @State private var promptText: String = ""
+    @State private var instructionsText: String = ""
     @State private var aiAnswer: String? = nil
     @State private var isSubmitting: Bool = false
     @State private var lastSubmittedPrompt: String? = nil
@@ -38,6 +39,21 @@ struct PromptView: View {
         }
     }
 
+    // Parsed Markdown version of the AI answer when available
+    private var aiAnswerAttributed: AttributedString? {
+        guard let aiAnswer, !aiAnswer.isEmpty else { return nil }
+        if #available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *) {
+            return try? AttributedString(
+                markdown: aiAnswer,
+                options: AttributedString.MarkdownParsingOptions(
+                    interpretedSyntax: .inlineOnly
+                )
+            )
+        } else {
+            return nil
+        }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             // Prompt
@@ -50,6 +66,22 @@ struct PromptView: View {
                     .scrollContentBackground(.hidden)
                     .padding(8)
                     .frame(minHeight: 160)
+                    .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(Color.secondary.opacity(0.2))
+                    )
+            }
+            
+            VStack(alignment: .leading, spacing: 6) {
+                Text("Instructions")
+                    .font(.headline)
+                    .foregroundStyle(.secondary)
+                TextEditor(text: $instructionsText)
+                    .applyTextInputAutocapitalizationSentences()
+                    .scrollContentBackground(.hidden)
+                    .padding(8)
+                    .frame(minHeight: 40, maxHeight: 100)
                     .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8))
                     .overlay(
                         RoundedRectangle(cornerRadius: 8)
@@ -73,21 +105,33 @@ struct PromptView: View {
                 // Add Command + Return shortcut on macOS
                 .keyboardShortcut(.return, modifiers: [.command])
                 #endif
+                .fixedSize()
             }
 
             // AI Answer area always visible with a compact fixed height
             VStack(alignment: .leading, spacing: 8) {
-                Text(aiAnswer ?? "AI response will be presented here")
+                ScrollView {
+                    Group {
+                        if let attributed = aiAnswerAttributed {
+                            Text(attributed)
+                        } else {
+                            Text(aiAnswer ?? "AI response will be presented here")
+                        }
+                    }
                     .foregroundStyle(aiAnswer == nil ? .secondary : .primary)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .frame(height: 200)
+//                    .frame(height: 200)
                     .padding()
-                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 10)
-                            .stroke(Color.secondary.opacity(0.2))
-                    )
-
+                    
+                    
+                }
+                .frame(height: 200)
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 10)
+                        .stroke(Color.secondary.opacity(0.2))
+                        .frame(height: 200)
+                )
                 // Save and Copy buttons under the answer
                 HStack {
                     Button {
@@ -111,8 +155,8 @@ struct PromptView: View {
             }
         }
         .padding()
-        // Encourage the view to report an intrinsic vertical size so the window can fit to content.
         #if os(macOS)
+        // Encourage the view to report an intrinsic vertical size so the window can fit to content.
         .fixedSize(horizontal: false, vertical: false)
         #endif
     }
@@ -127,8 +171,18 @@ struct PromptView: View {
         guard !isSubmitting else { return }
         isSubmitting = true
 
-        let modelSession = LanguageModelSession()
+        
         let submittingPrompt = promptText
+        let  submittingInstructions = instructionsText
+        
+        let modelSession: LanguageModelSession
+        
+        if submittingInstructions.isEmpty {
+            modelSession = LanguageModelSession()
+        } else {
+            modelSession = LanguageModelSession(instructions: instructionsText)
+        }
+        
         Task {
             do {
                 aiAnswer = try await modelSession.respond(to: submittingPrompt).content
