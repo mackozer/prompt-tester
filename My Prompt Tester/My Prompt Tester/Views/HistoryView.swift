@@ -15,7 +15,7 @@ struct HistoryView: View {
     
     @State private var itemPendingDeletion: Item? = nil
     @State private var isShowingDeleteAlert: Bool = false
-
+    
     var body: some View {
         NavigationStack {
             Group {
@@ -41,7 +41,7 @@ struct HistoryView: View {
                                         Text(item.aiAnswer)
                                             .font(.subheadline)
                                             .foregroundStyle(.secondary)
-                                            .lineLimit(nil) // allow unlimited lines
+                                            .lineLimit(5) // allow unlimited lines
                                             .fixedSize(horizontal: false, vertical: true)
                                         
                                         // Timestamp
@@ -161,10 +161,17 @@ private struct HistoryDetailView: View {
                     Text("Answer")
                         .font(.headline)
                         .foregroundStyle(.secondary)
-                    Text(item.aiAnswer)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding()
-                        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8))
+                    if let attributed = item.aiAnswer.attributed() {
+                        Text(attributed)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding()
+                            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8))
+                    } else {
+                        Text(item.aiAnswer)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding()
+                            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8))
+                    }
                 }
                 
                 // Copy button in detail as well for convenience

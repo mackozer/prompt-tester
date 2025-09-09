@@ -26,6 +26,13 @@ struct PromptView: View {
     @State private var isSubmitting: Bool = false
     @State private var lastSubmittedPrompt: String? = nil
 
+    // Focus management for switching between editors
+    @FocusState private var focusedField: FocusField?
+    enum FocusField: Hashable {
+        case prompt
+        case instructions
+    }
+
     private var hasPromptChangedSinceLastAnswer: Bool {
         guard let last = lastSubmittedPrompt else { return true }
         return last != promptText
@@ -71,6 +78,7 @@ struct PromptView: View {
                         RoundedRectangle(cornerRadius: 8)
                             .stroke(Color.secondary.opacity(0.2))
                     )
+                    .focused($focusedField, equals: .prompt)
             }
             
             VStack(alignment: .leading, spacing: 6) {
@@ -87,6 +95,7 @@ struct PromptView: View {
                         RoundedRectangle(cornerRadius: 8)
                             .stroke(Color.secondary.opacity(0.2))
                     )
+                    .focused($focusedField, equals: .instructions)
             }
 
             // Submit button aligned trailing relative to editor
@@ -120,10 +129,7 @@ struct PromptView: View {
                     }
                     .foregroundStyle(aiAnswer == nil ? .secondary : .primary)
                     .frame(maxWidth: .infinity, alignment: .leading)
-//                    .frame(height: 200)
                     .padding()
-                    
-                    
                 }
                 .frame(height: 200)
                 .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
@@ -159,6 +165,13 @@ struct PromptView: View {
         // Encourage the view to report an intrinsic vertical size so the window can fit to content.
         .fixedSize(horizontal: false, vertical: false)
         #endif
+        // Handle Tab / Shift+Tab to switch focus between TextEditors (iOS 17+, macOS 14+)
+        .modifier(TabFocusSwitcher(focusedField: $focusedField))
+        .onAppear {
+            if focusedField == nil {
+                focusedField = .prompt
+            }
+        }
     }
 
     private var canCopy: Bool {
@@ -171,9 +184,8 @@ struct PromptView: View {
         guard !isSubmitting else { return }
         isSubmitting = true
 
-        
         let submittingPrompt = promptText
-        let  submittingInstructions = instructionsText
+        let submittingInstructions = instructionsText
         
         let modelSession: LanguageModelSession
         
@@ -234,6 +246,49 @@ struct PromptView: View {
     }
 }
 
+// MARK: - Tab focus switcher
+
+private struct TabFocusSwitcher: ViewModifier {
+    // Accept a FocusState.Binding, not a standard Binding
+    var focusedField: FocusState<PromptView.FocusField?>.Binding
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if #available(iOS 17.0, macOS 14.0, tvOS 17.0, watchOS 10.0, *) {
+            content
+                // Handle Tab and Shift+Tab with a single handler; inspect modifiers on the press.
+                .onKeyPress(.tab) {
+                    focusNext()
+                    return .handled
+                }
+        } else {
+            content
+        }
+    }
+
+    private func focusNext() {
+        switch focusedField.wrappedValue {
+        case .prompt:
+            focusedField.wrappedValue = .instructions
+        case .instructions:
+            focusedField.wrappedValue = .prompt
+        case .none:
+            focusedField.wrappedValue = .instructions
+        }
+    }
+
+    private func focusPrevious() {
+        switch focusedField.wrappedValue {
+        case .prompt:
+            focusedField.wrappedValue = .instructions
+        case .instructions:
+            focusedField.wrappedValue = .prompt
+        case .none:
+            focusedField.wrappedValue = .instructions
+        }
+    }
+}
+
 private extension View {
     // Applies sentences autocapitalization on platforms/SDKs where available.
     @ViewBuilder
@@ -256,8 +311,3 @@ private extension View {
         .modelContainer(for: Item.self, inMemory: true)
 }
 
-@Generable
-struct PromptResponse {
-    @Guide(description: "Motivation for a dog to reach the goal in a session of training to fight dog separation anxiety")
-    var slogan: String
-}
