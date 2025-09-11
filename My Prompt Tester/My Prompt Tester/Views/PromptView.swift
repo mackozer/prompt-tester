@@ -62,115 +62,133 @@ struct PromptView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            // Prompt
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Prompt")
-                    .font(.headline)
-                    .foregroundStyle(.secondary)
-                TextEditor(text: $promptText)
-                    .applyTextInputAutocapitalizationSentences()
-                    .scrollContentBackground(.hidden)
-                    .padding(8)
-                    .frame(minHeight: 160)
-                    .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(Color.secondary.opacity(0.2))
-                    )
-                    .focused($focusedField, equals: .prompt)
-            }
-            
-            VStack(alignment: .leading, spacing: 6) {
-                Text("Instructions")
-                    .font(.headline)
-                    .foregroundStyle(.secondary)
-                TextEditor(text: $instructionsText)
-                    .applyTextInputAutocapitalizationSentences()
-                    .scrollContentBackground(.hidden)
-                    .padding(8)
-                    .frame(minHeight: 40, maxHeight: 100)
-                    .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 8)
-                            .stroke(Color.secondary.opacity(0.2))
-                    )
-                    .focused($focusedField, equals: .instructions)
-            }
-
-            // Submit button aligned trailing relative to editor
-            HStack {
-                Spacer()
-                Button(action: submitTapped) {
-                    if isSubmitting {
-                        ProgressView()
-                    } else {
-                        Text(submitButtonTitle)
-                    }
+        GeometryReader { _ in
+            VStack(alignment: .leading, spacing: 12) {
+                // Prompt
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Prompt")
+                        .font(.headline)
+                        .foregroundStyle(.secondary)
+                    TextEditor(text: $promptText)
+                        .applyTextInputAutocapitalizationSentences()
+                        .scrollContentBackground(.hidden)
+                        .padding(8)
+                        .frame(minHeight: 180, maxHeight: 200)
+                        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(Color.secondary.opacity(0.2))
+                        )
+                        .focused($focusedField, equals: .prompt)
                 }
-                .buttonStyle(.borderedProminent)
-                .disabled(isSubmitting || promptText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                #if os(macOS)
-                // Add Command + Return shortcut on macOS
-                .keyboardShortcut(.return, modifiers: [.command])
-                #endif
-                .fixedSize()
-            }
-
-            // AI Answer area always visible with a compact fixed height
-            VStack(alignment: .leading, spacing: 8) {
-                ScrollView {
-                    Group {
-                        if let attributed = aiAnswerAttributed {
-                            Text(attributed)
+                
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Instructions")
+                        .font(.headline)
+                        .foregroundStyle(.secondary)
+                    TextEditor(text: $instructionsText)
+                        .applyTextInputAutocapitalizationSentences()
+                        .scrollContentBackground(.hidden)
+                        .padding(8)
+                        .frame(minHeight: 140, maxHeight: 140)
+                        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(Color.secondary.opacity(0.2))
+                        )
+                        .focused($focusedField, equals: .instructions)
+                }
+                
+                // Submit button aligned trailing relative to editor
+                HStack {
+                    Spacer()
+                    Button(action: submitTapped) {
+                        if isSubmitting {
+                            ProgressView()
                         } else {
-                            Text(aiAnswer ?? "AI response will be presented here")
+                            Text(submitButtonTitle)
                         }
                     }
-                    .foregroundStyle(aiAnswer == nil ? .secondary : .primary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding()
+                    .buttonStyle(.borderedProminent)
+                    .disabled(isSubmitting || promptText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    #if os(macOS)
+                    // Add Command + Return shortcut on macOS
+                    .keyboardShortcut(.return, modifiers: [.command])
+                    #endif
+                    .fixedSize()
                 }
-                .frame(height: 200)
-                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
-                .overlay(
-                    RoundedRectangle(cornerRadius: 10)
-                        .stroke(Color.secondary.opacity(0.2))
-                        .frame(height: 200)
-                )
-                // Save and Copy buttons under the answer
-                HStack {
-                    Button {
-                        saveTapped()
-                    } label: {
-                        Label("Save", systemImage: "square.and.arrow.down")
+                
+                // AI Answer area always visible with a compact fixed height
+                VStack(alignment: .leading, spacing: 8) {
+                    ScrollView {
+                        Group {
+                            if let attributed = aiAnswerAttributed {
+                                Text(attributed)
+                            } else {
+                                Text(aiAnswer ?? "AI response will be presented here")
+                            }
+                        }
+                        .foregroundStyle(aiAnswer == nil ? .secondary : .primary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding()
                     }
-                    .buttonStyle(.bordered)
-                    .disabled(aiAnswer == nil)
-
-                    Spacer()
-
-                    Button {
-                        copyTapped()
-                    } label: {
-                        Label("Copy", systemImage: "doc.on.doc")
+                    .frame(height: 200)
+                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 10)
+                            .stroke(Color.secondary.opacity(0.2))
+                            .frame(height: 200)
+                    )
+                    // Save and Copy buttons under the answer
+                    HStack {
+                        Button {
+                            saveTapped()
+                        } label: {
+                            Label("Save", systemImage: "square.and.arrow.down")
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(aiAnswer == nil)
+                        
+                        Spacer()
+                        
+                        Button {
+                            copyTapped()
+                        } label: {
+                            Label("Copy", systemImage: "doc.on.doc")
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(!canCopy)
                     }
-                    .buttonStyle(.bordered)
-                    .disabled(!canCopy)
                 }
             }
-        }
-        .padding()
-        #if os(macOS)
-        // Encourage the view to report an intrinsic vertical size so the window can fit to content.
-        .fixedSize(horizontal: false, vertical: false)
-        #endif
-        // Handle Tab / Shift+Tab to switch focus between TextEditors (iOS 17+, macOS 14+)
-        .modifier(TabFocusSwitcher(focusedField: $focusedField))
-        .onAppear {
-            if focusedField == nil {
-                focusedField = .prompt
+            .padding()
+            #if os(iOS)
+            .safeAreaPadding(.top)
+            #endif
+            #if os(macOS)
+            // Encourage the view to report an intrinsic vertical size so the window can fit to content.
+            .fixedSize(horizontal: false, vertical: false)
+            #endif
+            // Handle Tab / Shift+Tab to switch focus between TextEditors (iOS 17+, macOS 14+)
+            .modifier(TabFocusSwitcher(focusedField: $focusedField))
+            .onAppear {
+                #if os(iOS)
+                // Do not auto-focus on iOS to avoid popping the software keyboard when no external keyboard is connected.
+                #else
+                if focusedField == nil {
+                    focusedField = .prompt
+                }
+                #endif
             }
+            #if os(iOS)
+            .contentShape(Rectangle())
+            .simultaneousGesture(TapGesture().onEnded {
+                focusedField = nil
+            })
+            #endif
+            #if os(iOS)
+            .ignoresSafeArea(.keyboard, edges: .bottom)
+            #endif
         }
     }
 

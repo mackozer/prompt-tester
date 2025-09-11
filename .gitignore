@@ -62,3 +62,4 @@ fastlane/screenshots/**/*.png
 fastlane/test_output
 /My Prompt Tester/My Prompt Tester/.DS_Store
 /My Prompt Tester/.DS_Store
+/.DS_Store

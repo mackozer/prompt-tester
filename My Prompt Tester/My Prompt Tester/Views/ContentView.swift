@@ -9,12 +9,17 @@ import SwiftUI
 
 struct ContentView: View {
     var body: some View {
+        mainTabView
+    }
+    
+    @ViewBuilder
+    var mainTabView: some View {
         TabView {
             PromptView()
                 .tabItem {
                     Label("Prompt", systemImage: "square.and.pencil")
                 }
-
+            
             HistoryView()
                 .tabItem {
                     Label("History", systemImage: "clock")
