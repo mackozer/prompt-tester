@@ -10,9 +10,9 @@ import SwiftData
 
 @Model
 final class Item {
-    var timestamp: Date
-    var prompt: String
-    var aiAnswer: String
+    var timestamp: Date = Date.now
+    var prompt: String = ""
+    var aiAnswer: String = ""
     var instructions: String = ""
     
     init(timestamp: Date, prompt: String, aiAnswer: String, instructions: String = "") {
