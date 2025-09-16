@@ -44,10 +44,26 @@ enum ClipboardManager {
         return true
     }
 
+    // High-level API overload that includes instructions between prompt and answer.
+    // Order: trimmedPrompt separator trimmedInstructions separator trimmedAnswer
+    @discardableResult
+    static func copy(prompt: String, instructions: String, answer: String) -> Bool {
+        let trimmedPrompt = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedInstructions = instructions.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedAnswer = answer.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedPrompt.isEmpty, !trimmedInstructions.isEmpty, !trimmedAnswer.isEmpty else { return false }
+
+        let separator = "\n--------------------\n"
+        let combined = "\(trimmedPrompt)\(separator)\(trimmedInstructions)\(separator)\(trimmedAnswer)"
+
+        copy(text: combined)
+        return true
+    }
+
     // Convenience overload for copying from a model Item.
     @discardableResult
     static func copy(from item: Item) -> Bool {
-        copy(prompt: item.prompt, answer: item.aiAnswer)
+        copy(prompt: item.prompt, instructions: item.instructions, answer: item.aiAnswer)
     }
 }
 

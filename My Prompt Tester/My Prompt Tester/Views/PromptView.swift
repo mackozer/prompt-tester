@@ -290,7 +290,7 @@ struct PromptView: View {
 
     private func copyTapped() {
         guard let answer = aiAnswer else { return }
-        _ = ClipboardManager.copy(prompt: promptText, answer: answer)
+        _ = ClipboardManager.copy(prompt: promptText, instructions: instructionsText, answer: answer)
     }
 }
 
