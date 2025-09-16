@@ -17,7 +17,7 @@ struct InfoView: View {
             .cornerRadius(20)
             .shadow(radius: 4)
         #elseif canImport(UIKit)
-        if let uiImage = UIImage(named: "AppIcon") {
+        if let uiImage = UIImage(named: "icon") {
             Image(uiImage: uiImage)
                 .resizable()
                 .aspectRatio(contentMode: .fit)
@@ -50,14 +50,18 @@ struct InfoView: View {
                     .bold()
 
                 Text("This app helps users explore and experiment with Apple Intelligence prompts and instructions to build more interactive and engaging user experiences. It's a great way to practice and improve your skills in this exciting field!")
+                    #if os(macOS)
                     .font(.title3)
+                    #endif
                     .multilineTextAlignment(.center)
 
                 VStack(alignment: .center, spacing: 8) {
                     Text("Creator")
                         .font(.headline)
                     Text("Krystian Kozerawski")
-                        .font(.title3)
+                    #if os(macOS)
+                    .font(.title3)
+                    #endif
                 }
 
                 VStack(alignment: .center, spacing: 8) {
@@ -70,7 +74,10 @@ struct InfoView: View {
                         Link("Email Developer", destination: URL(string: "mailto:mackozer@icloud.com")!)
                         // Mastodon handle and link
                         Link("Mastodon", destination: URL(string: "https://mastodon.social/@mackozer")!)
-                    }.font(.title3)
+                    }
+                    #if os(macOS)
+                    .font(.title3)
+                    #endif
                 }
 
                 Spacer(minLength: 0)
