@@ -48,6 +48,11 @@ struct ContentView: View {
                 .tabItem {
                     Label("History", systemImage: "clock")
                 }
+            
+            InfoView()
+                .tabItem {
+                    Label("Info", systemImage: "info.circle")
+                }
         }
     }
     
