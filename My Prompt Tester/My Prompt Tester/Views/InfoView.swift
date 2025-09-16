@@ -69,7 +69,7 @@ struct InfoView: View {
                         .font(.headline)
                     Group {
                         // Website placeholder: open a blank page for now
-                        Link("Website", destination: URL(string: "about:blank")!)
+                        Link("Website", destination: URL(string: "https://mackozer.github.io/myprompttester.html")!)
                         // Email link
                         Link("Email Developer", destination: URL(string: "mailto:mackozer@icloud.com")!)
                         // Mastodon handle and link
