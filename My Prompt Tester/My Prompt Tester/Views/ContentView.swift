@@ -10,6 +10,9 @@ import SwiftUI
 struct ContentView: View {
     var body: some View {
         mainTabView
+        #if os(macOS)
+        .frame(minWidth: 900, minHeight: 700)
+        #endif
     }
     
     @ViewBuilder

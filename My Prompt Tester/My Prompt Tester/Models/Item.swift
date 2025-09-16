@@ -13,10 +13,12 @@ final class Item {
     var timestamp: Date
     var prompt: String
     var aiAnswer: String
+    var instructions: String = ""
     
-    init(timestamp: Date, prompt: String, aiAnswer: String) {
+    init(timestamp: Date, prompt: String, aiAnswer: String, instructions: String = "") {
         self.timestamp = timestamp
         self.prompt = prompt
         self.aiAnswer = aiAnswer
+        self.instructions = instructions
     }
 }

@@ -25,6 +25,7 @@ struct PromptView: View {
     @State private var aiAnswer: String? = nil
     @State private var isSubmitting: Bool = false
     @State private var lastSubmittedPrompt: String? = nil
+    @State private var currentTask: Task<Void, Never>? = nil
 
     // Focus management for switching between editors
     @FocusState private var focusedField: FocusField?
@@ -102,35 +103,48 @@ struct PromptView: View {
                 // Submit button aligned trailing relative to editor
                 HStack {
                     Spacer()
-                    Button(action: submitTapped) {
+                    Button(action: {
                         if isSubmitting {
-                            ProgressView()
+                            stopTapped()
+                        } else {
+                            submitTapped()
+                        }
+                    }) {
+                        if isSubmitting {
+                            Label("Stop", systemImage: "stop.fill")
                         } else {
                             Text(submitButtonTitle)
                         }
                     }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(isSubmitting || promptText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .applyPrimaryButtonStyle(isSubmitting: isSubmitting)
                     #if os(macOS)
                     // Add Command + Return shortcut on macOS
                     .keyboardShortcut(.return, modifiers: [.command])
                     #endif
+                    .disabled(!isSubmitting && promptText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .tint(isSubmitting ? .red : nil)
                     .fixedSize()
                 }
                 
                 // AI Answer area always visible with a compact fixed height
                 VStack(alignment: .leading, spacing: 8) {
-                    ScrollView {
-                        Group {
-                            if let attributed = aiAnswerAttributed {
-                                Text(attributed)
-                            } else {
-                                Text(aiAnswer ?? "AI response will be presented here")
+                    ZStack {
+                        ScrollView {
+                            Group {
+                                if let attributed = aiAnswerAttributed {
+                                    Text(attributed)
+                                } else {
+                                    Text(aiAnswer ?? "AI response will be presented here")
+                                }
                             }
+                            .foregroundStyle(aiAnswer == nil ? .secondary : .primary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding()
                         }
-                        .foregroundStyle(aiAnswer == nil ? .secondary : .primary)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding()
+                        if isSubmitting {
+                            ProgressView()
+                                .controlSize(.large)
+                        }
                     }
                     .frame(height: 200)
                     .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
@@ -146,7 +160,7 @@ struct PromptView: View {
                         } label: {
                             Label("Save", systemImage: "square.and.arrow.down")
                         }
-                        .buttonStyle(.bordered)
+                        .applyBorderedButtonStyle()
                         .disabled(aiAnswer == nil)
                         
                         Spacer()
@@ -156,7 +170,7 @@ struct PromptView: View {
                         } label: {
                             Label("Copy", systemImage: "doc.on.doc")
                         }
-                        .buttonStyle(.bordered)
+                        .applyBorderedButtonStyle()
                         .disabled(!canCopy)
                     }
                 }
@@ -204,24 +218,39 @@ struct PromptView: View {
 
         let submittingPrompt = promptText
         let submittingInstructions = instructionsText
-        
+
         let modelSession: LanguageModelSession
-        
+
         if submittingInstructions.isEmpty {
             modelSession = LanguageModelSession()
         } else {
             modelSession = LanguageModelSession(instructions: instructionsText)
         }
-        
-        Task {
+
+        currentTask = Task { [submittingPrompt] in
+            defer {
+                // Only clear submitting state if not cancelled; if cancelled, stopTapped() already reset state
+                if !Task.isCancelled {
+                    isSubmitting = false
+                }
+                currentTask = nil
+            }
             do {
-                aiAnswer = try await modelSession.respond(to: submittingPrompt).content
+                let response = try await modelSession.respond(to: submittingPrompt).content
+                if Task.isCancelled { return }
+                aiAnswer = response
                 lastSubmittedPrompt = submittingPrompt
             } catch {
+                if Task.isCancelled { return }
                 aiAnswer = "Failed to fetch an AI response."
             }
-            isSubmitting = false
         }
+    }
+
+    private func stopTapped() {
+        currentTask?.cancel()
+        currentTask = nil
+        isSubmitting = false
     }
 
     private func saveTapped() {
@@ -253,7 +282,8 @@ struct PromptView: View {
         let item = Item(
             timestamp: Date(),
             prompt: trimmedPrompt,
-            aiAnswer: trimmedAnswer
+            aiAnswer: trimmedAnswer,
+            instructions: instructionsText
         )
         modelContext.insert(item)
     }
@@ -322,10 +352,27 @@ private extension View {
         self
         #endif
     }
+
+    @ViewBuilder
+    func applyPrimaryButtonStyle(isSubmitting: Bool) -> some View {
+        if #available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *) {
+            self.buttonStyle(.automatic)
+        } else {
+            self.buttonStyle(DefaultButtonStyle())
+        }
+    }
+
+    @ViewBuilder
+    func applyBorderedButtonStyle() -> some View {
+        if #available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *) {
+            self.buttonStyle(.automatic)
+        } else {
+            self.buttonStyle(DefaultButtonStyle())
+        }
+    }
 }
 
 #Preview {
     PromptView()
         .modelContainer(for: Item.self, inMemory: true)
 }
-

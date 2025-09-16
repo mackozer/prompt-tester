@@ -37,6 +37,13 @@ struct HistoryView: View {
                                             .lineLimit(nil) // allow unlimited lines
                                             .fixedSize(horizontal: false, vertical: true)
                                         
+                                        // Instructions preview (multiline)
+                                        Text(item.instructions.isEmpty ? "—" : item.instructions)
+                                            .font(.subheadline)
+                                            .foregroundStyle(.secondary)
+                                            .lineLimit(3)
+                                            .fixedSize(horizontal: false, vertical: true)
+                                        
                                         // Answer preview (multiline)
                                         Text(item.aiAnswer)
                                             .font(.subheadline)
@@ -158,6 +165,16 @@ private struct HistoryDetailView: View {
                 }
                 
                 VStack(alignment: .leading, spacing: 8) {
+                    Text("Instructions")
+                        .font(.headline)
+                        .foregroundStyle(.secondary)
+                    Text(item.instructions.isEmpty ? "—" : item.instructions)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding()
+                        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8))
+                }
+                
+                VStack(alignment: .leading, spacing: 8) {
                     Text("Answer")
                         .font(.headline)
                         .foregroundStyle(.secondary)
@@ -202,8 +219,8 @@ private struct HistoryDetailView: View {
         let container = try! ModelContainer(for: schema, configurations: [config])
         let context = ModelContext(container)
         let samples = [
-            Item(timestamp: Date(), prompt: "Sample prompt 1\nwith multiple lines to demonstrate wrapping in the list cell.", aiAnswer: "Sample answer 1 that is also quite long and spans multiple lines to test multiline rendering in the list."),
-            Item(timestamp: Date().addingTimeInterval(-3600), prompt: "Another prompt that is longer to show wrapping in the list cell and ensure everything expands properly.", aiAnswer: "Another answer that is longer to show wrapping in the list cell.\nSecond line.\nThird line.")
+            Item(timestamp: Date(), prompt: "Sample prompt 1\nwith multiple lines to demonstrate wrapping in the list cell.", aiAnswer: "Sample answer 1 that is also quite long and spans multiple lines to test multiline rendering in the list.", instructions: "Sample instructions for item 1 to demonstrate how instructions appear both in the list and in details."),
+            Item(timestamp: Date().addingTimeInterval(-3600), prompt: "Another prompt that is longer to show wrapping in the list cell and ensure everything expands properly.", aiAnswer: "Another answer that is longer to show wrapping in the list cell.\nSecond line.\nThird line.", instructions: "Additional instructions for item 2. These can also be multiline to test wrapping behavior.")
         ]
         samples.forEach { context.insert($0) }
         return container
