@@ -72,6 +72,9 @@ struct PromptView: View {
                         .foregroundStyle(.secondary)
                     TextEditor(text: $promptText)
                         .applyTextInputAutocapitalizationSentences()
+#if os(macOS)
+                        .font(.title3)
+#endif
                         .scrollContentBackground(.hidden)
                         .padding(8)
                         .frame(minHeight: 180, maxHeight: 200)
@@ -89,6 +92,9 @@ struct PromptView: View {
                         .foregroundStyle(.secondary)
                     TextEditor(text: $instructionsText)
                         .applyTextInputAutocapitalizationSentences()
+#if os(macOS)
+                        .font(.title3)
+#endif
                         .scrollContentBackground(.hidden)
                         .padding(8)
                         .frame(minHeight: 140, maxHeight: 140)
@@ -102,6 +108,14 @@ struct PromptView: View {
                 
                 // Submit button aligned trailing relative to editor
                 HStack {
+                    Button(action: {
+                        clearTapped()
+                    }) {
+                        Label("Clear", systemImage: "xmark.circle")
+                    }
+                    .applyBorderedButtonStyle()
+                    .disabled(!canClear)
+                    
                     Spacer()
                     Button(action: {
                         if isSubmitting {
@@ -113,7 +127,7 @@ struct PromptView: View {
                         if isSubmitting {
                             Label("Stop", systemImage: "stop.fill")
                         } else {
-                            Text(submitButtonTitle)
+                            Label(submitButtonTitle, systemImage: "apple.intelligence")
                         }
                     }
                     .applyPrimaryButtonStyle(isSubmitting: isSubmitting)
@@ -212,6 +226,13 @@ struct PromptView: View {
         return !trimmedPrompt.isEmpty && !trimmedAnswer.isEmpty
     }
 
+    private var canClear: Bool {
+        let hasPrompt = !promptText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let hasInstructions = !instructionsText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        let hasAnswer = !(aiAnswer?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ?? true)
+        return hasPrompt || hasInstructions || hasAnswer || isSubmitting
+    }
+
     private func submitTapped() {
         guard !isSubmitting else { return }
         isSubmitting = true
@@ -251,6 +272,17 @@ struct PromptView: View {
         currentTask?.cancel()
         currentTask = nil
         isSubmitting = false
+    }
+
+    private func clearTapped() {
+        if isSubmitting {
+            stopTapped()
+        }
+        promptText = ""
+        instructionsText = ""
+        aiAnswer = nil
+        lastSubmittedPrompt = nil
+        focusedField = nil
     }
 
     private func saveTapped() {
@@ -376,3 +408,4 @@ private extension View {
     PromptView()
         .modelContainer(for: Item.self, inMemory: true)
 }
+
