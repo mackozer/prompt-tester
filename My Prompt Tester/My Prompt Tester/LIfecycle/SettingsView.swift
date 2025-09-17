@@ -4,52 +4,58 @@ struct SettingsView: View {
     @AppStorage("copyIncludeInstructions") private var copyIncludeInstructions: Bool = true
     @AppStorage("copyIncludeResponse") private var copyIncludeResponse: Bool = false
 
+    #if os(iOS)
+    @Environment(\.dismiss) private var dismiss
+    #endif
+
     var body: some View {
         VStack(alignment: .center, spacing: 16) {
-            Text("Settings")
+
+            Text("Copy to clipboard")
                 .font(.title2)
                 .bold()
-                .frame(maxWidth: .infinity, alignment: .center)
 
-            VStack(alignment: .trailing, spacing: 12) {
-                HStack(spacing: 12) {
-                    Text("Copy prompt and instructions")
-                        .frame(maxWidth: .infinity, alignment: .trailing)
-                    Toggle("", isOn: $copyIncludeInstructions)
-                        .labelsHidden()
-                        #if os(macOS)
-                        .toggleStyle(.checkbox)
-                        #endif
+            Text("The prompt is always copied.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+
+                VStack(alignment: .leading, spacing: 12) {
+                    SettingsToggle(label: "Add instructions", isOn: $copyIncludeInstructions)
+                    SettingsToggle(label: "Add response", isOn: $copyIncludeResponse)
                 }
-                HStack(spacing: 12) {
-                    Text("Also copy response")
-                        .frame(maxWidth: .infinity, alignment: .trailing)
-                    Toggle("", isOn: $copyIncludeResponse)
-                        .labelsHidden()
-                        #if os(macOS)
-                        .toggleStyle(.checkbox)
-                        #endif
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .center)
         }
         .padding(20)
-        .frame(maxWidth: 520)
-        .background(
-            RoundedRectangle(cornerRadius: 14)
-                .fill(.thinMaterial)
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 14)
-                .stroke(Color.secondary.opacity(0.15))
-        )
-        .padding()
         #if os(macOS)
-        .frame(minWidth: 480)
+        .frame(minWidth: 300)
+        #endif
+        #if os(iOS)
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Button {
+                    dismiss()
+                } label: {
+                    Image(systemName: "xmark")
+                }
+                .accessibilityLabel("Close")
+            }
+        }
         #endif
     }
 }
 
 #Preview {
     SettingsView()
+}
+
+struct SettingsToggle: View {
+    let label: LocalizedStringKey
+    @Binding var isOn: Bool
+    
+    var body: some View {
+        Toggle(label, isOn: $isOn)
+            #if os(macOS)
+            .toggleStyle(.checkbox)
+            #endif
+    }
 }

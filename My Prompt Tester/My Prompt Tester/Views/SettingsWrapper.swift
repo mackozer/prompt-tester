@@ -27,11 +27,16 @@ struct SettingsWrapper<Content: View>: View {
                 }
             }
             .sheet(isPresented: $isShowingSettings) {
-                SettingsView()
-                    .presentationDetents([.medium, .large])
+                NavigationStack {
+                    SettingsView()
+                        .navigationTitle("Settings")
+                        .navigationBarTitleDisplayMode(.inline)
+                }
+                .presentationDetents([.height(300)])
             }
         #else
         content
         #endif
     }
 }
+
