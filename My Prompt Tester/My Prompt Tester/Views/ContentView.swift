@@ -9,6 +9,7 @@ import SwiftUI
 import FoundationModels
 
 struct ContentView: View {
+    
     private var isAppleIntelligenceAvailable: Bool {
         #if os(iOS) || os(macOS)
         if #available(iOS 18.0, macOS 15.0, *) {
@@ -23,6 +24,65 @@ struct ContentView: View {
         #endif
     }
     
+    @ViewBuilder
+    private var promptTab: some View {
+        if isAppleIntelligenceAvailable {
+            #if os(iOS)
+            NavigationStack { SettingsWrapper { PromptView() } }
+            #else
+            PromptView()
+                .toolbar {
+                    ToolbarItem(placement: .automatic) {
+                        SettingsLink {
+                            Image(systemName: "gearshape").imageScale(.medium)
+                        }
+                        .accessibilityLabel("Settings")
+                    }
+                }
+            #endif
+        } else {
+            #if os(iOS)
+            NavigationStack { appleIntelligenceUnavailableView }
+            #else
+            appleIntelligenceUnavailableView
+            #endif
+        }
+    }
+
+    @ViewBuilder
+    private var historyTab: some View {
+        #if os(iOS)
+        NavigationStack { SettingsWrapper { HistoryView() } }
+        #else
+        HistoryView()
+            .toolbar {
+                ToolbarItem(placement: .automatic) {
+                    SettingsLink {
+                        Image(systemName: "gearshape").imageScale(.medium)
+                    }
+                    .accessibilityLabel("Settings")
+                }
+            }
+        #endif
+    }
+
+    @ViewBuilder
+    private var infoTab: some View {
+        #if os(iOS)
+        NavigationStack { SettingsWrapper { InfoView() } }
+        #else
+        InfoView()
+            .toolbar {
+                ToolbarItem(placement: .automatic) {
+                    SettingsLink {
+                        Image(systemName: "gearshape").imageScale(.medium)
+                    }
+                    .accessibilityLabel("Settings")
+                }
+            }
+        #endif
+    }
+    
     var body: some View {
         mainTabView
         #if os(macOS)
@@ -33,26 +93,14 @@ struct ContentView: View {
     @ViewBuilder
     var mainTabView: some View {
         TabView {
-            Group {
-                if isAppleIntelligenceAvailable {
-                    PromptView()
-                } else {
-                    appleIntelligenceUnavailableView
-                }
-            }
-            .tabItem {
-                Label("Prompt", systemImage: "square.and.pencil")
-            }
-            
-            HistoryView()
-                .tabItem {
-                    Label("History", systemImage: "clock")
-                }
-            
-            InfoView()
-                .tabItem {
-                    Label("Info", systemImage: "info.circle")
-                }
+            promptTab
+                .tabItem { Label("Prompt", systemImage: "square.and.pencil") }
+
+            historyTab
+                .tabItem { Label("History", systemImage: "clock") }
+
+            infoTab
+                .tabItem { Label("Info", systemImage: "info.circle") }
         }
     }
     
@@ -79,3 +127,4 @@ struct ContentView: View {
 #Preview {
     ContentView()
 }
+

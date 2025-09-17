@@ -109,18 +109,6 @@ struct InfoView: View {
                 }
                 .padding(.top, 4)
 
-                // Settings section
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("Settings")
-                        .font(.headline)
-                    Toggle("Copy prompt and instructions", isOn: $copyIncludeInstructions)
-                    Toggle("Also copy response", isOn: $copyIncludeResponse)
-                    #if os(macOS)
-                    .font(.title3)
-                    #endif
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-
                 VStack(alignment: .center, spacing: 8) {
                     Text("Creator")
                         .font(.headline)

@@ -8,6 +8,10 @@
 import SwiftUI
 import SwiftData
 
+#if os(macOS)
+import AppKit
+#endif
+
 @main
 struct My_Prompt_TesterApp: App {
     let container: ModelContainer
@@ -21,6 +25,13 @@ struct My_Prompt_TesterApp: App {
         // Let the window follow the content’s ideal size (macOS 14+).
         .windowResizability(.contentSize)
         #endif
+
+        #if os(macOS)
+        Settings {
+            SettingsView()
+                .padding()
+        }
+        #endif
     }
     
     init() {
@@ -31,3 +42,4 @@ struct My_Prompt_TesterApp: App {
         }
     }
 }
+
