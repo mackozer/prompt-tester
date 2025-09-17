@@ -85,6 +85,16 @@ struct InfoView: View {
                         Text("One-time tip of \(product.displayPrice)")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
+                        // Restore purchases
+                        HStack(spacing: 8) {
+                            Button {
+                                Task { await tipStore.restorePurchases() }
+                            } label: {
+                                Label("Restore Purchases", systemImage: "arrow.clockwise")
+                            }
+                            .buttonStyle(.bordered)
+                            .disabled(tipStore.isLoading)
+                        }
                     } else {
                         Button {
                             Task { await tipStore.loadProducts() }
@@ -99,6 +109,16 @@ struct InfoView: View {
                         Text("One-time tip")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
+                        // Restore purchases
+                        HStack(spacing: 8) {
+                            Button {
+                                Task { await tipStore.restorePurchases() }
+                            } label: {
+                                Label("Restore Purchases", systemImage: "arrow.clockwise")
+                            }
+                            .buttonStyle(.bordered)
+                            .disabled(tipStore.isLoading)
+                        }
                     }
 
                     if let message = tipStore.lastMessage {

@@ -103,4 +103,22 @@ final class TipStore: ObservableObject {
             lastMessage = "Purchase failed."
         }
     }
+    
+    /// Attempt to restore previous purchases and refresh entitlement state
+    func restorePurchases() async {
+        guard !isLoading else { return }
+        isLoading = true
+        defer { isLoading = false }
+        do {
+            try await AppStore.sync()
+            await refreshEntitlement()
+            if hasTipped {
+                lastMessage = "Purchases restored. Thank you!"
+            } else {
+                lastMessage = "No previous tips to restore."
+            }
+        } catch {
+            lastMessage = "Restore failed."
+        }
+    }
 }
