@@ -7,6 +7,12 @@
 
 import SwiftUI
 import SwiftData
+#if canImport(UIKit)
+import UIKit
+#endif
+#if os(macOS)
+import AppKit
+#endif
 
 struct HistoryView: View {
     @Environment(\.modelContext) private var modelContext
@@ -15,6 +21,8 @@ struct HistoryView: View {
     
     @State private var itemPendingDeletion: Item? = nil
     @State private var isShowingDeleteAlert: Bool = false
+    @AppStorage("copyIncludeInstructions") private var copyIncludeInstructions: Bool = true
+    @AppStorage("copyIncludeResponse") private var copyIncludeResponse: Bool = false
     
     var body: some View {
         NavigationStack {
@@ -62,7 +70,7 @@ struct HistoryView: View {
                                     
                                     // Visible copy button in the row
                                     Button {
-                                        _ = ClipboardManager.copy(from: item)
+                                        copy(item: item)
                                     } label: {
                                         Image(systemName: "doc.on.doc")
                                             .imageScale(.medium)
@@ -89,7 +97,7 @@ struct HistoryView: View {
                             // iOS swipe actions for quick copy and delete
                             .swipeActions(edge: .trailing, allowsFullSwipe: true) {
                                 Button {
-                                    _ = ClipboardManager.copy(from: item)
+                                    copy(item: item)
                                 } label: {
                                     Label("Copy", systemImage: "doc.on.doc")
                                 }
@@ -142,10 +150,53 @@ struct HistoryView: View {
             modelContext.delete(item)
         }
     }
+    
+    private func copy(item: Item) {
+        let prompt = item.prompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !prompt.isEmpty else { return }
+
+        let composite: String
+        if !copyIncludeInstructions && !copyIncludeResponse {
+            // Only prompt requested: copy raw prompt content without labels
+            composite = prompt
+        } else {
+            var parts: [String] = []
+            parts.append("Prompt:\n\(prompt)")
+
+            if copyIncludeInstructions {
+                let instr = item.instructions.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !instr.isEmpty {
+                    parts.append("Instructions:\n\(instr)")
+                }
+            }
+
+            if copyIncludeResponse {
+                let answer = item.aiAnswer.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !answer.isEmpty {
+                    parts.append("Response:\n\(answer)")
+                }
+            }
+
+            composite = parts.joined(separator: "\n\n")
+        }
+
+        // Preserve existing behavior (if used elsewhere in the app)
+        _ = ClipboardManager.copy(from: item)
+
+        // And write the composed string to the system pasteboard as requested
+        #if canImport(UIKit)
+        UIPasteboard.general.string = composite
+        #elseif os(macOS)
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(composite, forType: .string)
+        #endif
+    }
 }
 
 private struct HistoryDetailView: View {
     let item: Item
+    @AppStorage("copyIncludeInstructions") private var copyIncludeInstructions: Bool = true
+    @AppStorage("copyIncludeResponse") private var copyIncludeResponse: Bool = false
     
     var body: some View {
         ScrollView {
@@ -195,7 +246,7 @@ private struct HistoryDetailView: View {
                 HStack {
                     Spacer()
                     Button {
-                        _ = ClipboardManager.copy(from: item)
+                        copyCurrentItem()
                     } label: {
                         Label("Copy", systemImage: "doc.on.doc")
                     }
@@ -207,6 +258,47 @@ private struct HistoryDetailView: View {
         .navigationTitle("Details")
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
+        #endif
+    }
+    
+    private func copyCurrentItem() {
+        let prompt = item.prompt.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !prompt.isEmpty else { return }
+
+        let composite: String
+        if !copyIncludeInstructions && !copyIncludeResponse {
+            // Only prompt requested: copy raw prompt content without labels
+            composite = prompt
+        } else {
+            var parts: [String] = []
+            parts.append("Prompt:\n\(prompt)")
+
+            if copyIncludeInstructions {
+                let instr = item.instructions.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !instr.isEmpty {
+                    parts.append("Instructions:\n\(instr)")
+                }
+            }
+
+            if copyIncludeResponse {
+                let answer = item.aiAnswer.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !answer.isEmpty {
+                    parts.append("Response:\n\(answer)")
+                }
+            }
+
+            composite = parts.joined(separator: "\n\n")
+        }
+
+        // Preserve existing behavior (if used elsewhere in the app)
+        _ = ClipboardManager.copy(from: item)
+
+        // And write the composed string to the system pasteboard as requested
+        #if canImport(UIKit)
+        UIPasteboard.general.string = composite
+        #elseif os(macOS)
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(composite, forType: .string)
         #endif
     }
 }

@@ -20,6 +20,9 @@ import AppKit
 struct PromptView: View {
     @Environment(\.modelContext) private var modelContext
 
+    @AppStorage("copyIncludeInstructions") private var copyIncludeInstructions: Bool = true
+    @AppStorage("copyIncludeResponse") private var copyIncludeResponse: Bool = false
+
     @State private var promptText: String = ""
     @State private var instructionsText: String = ""
     @State private var aiAnswer: String? = nil
@@ -33,6 +36,21 @@ struct PromptView: View {
         case prompt
         case instructions
     }
+
+    // Dynamic sizing for iPad
+    private var isPad: Bool {
+        #if os(iOS)
+        return UIDevice.current.userInterfaceIdiom == .pad
+        #else
+        return false
+        #endif
+    }
+
+    private var promptMinHeight: CGFloat { isPad ? 260 : 180 }
+    private var promptMaxHeight: CGFloat { isPad ? 300 : 200 }
+    private var instructionsMinHeight: CGFloat { isPad ? 200 : 140 }
+    private var instructionsMaxHeight: CGFloat { isPad ? 220 : 140 }
+    // Removed: private var answerFixedHeight: CGFloat { isPad ? 320 : 200 }
 
     private var hasPromptChangedSinceLastAnswer: Bool {
         guard let last = lastSubmittedPrompt else { return true }
@@ -63,7 +81,16 @@ struct PromptView: View {
     }
 
     var body: some View {
-        GeometryReader { _ in
+        GeometryReader { proxy in
+            let isLandscape = proxy.size.width > proxy.size.height
+            let answerHeight: CGFloat = {
+                if isPad {
+                    return isLandscape ? 260 : 320
+                } else {
+                    return 200
+                }
+            }()
+
             VStack(alignment: .leading, spacing: 12) {
                 // Prompt
                 VStack(alignment: .leading, spacing: 6) {
@@ -77,7 +104,7 @@ struct PromptView: View {
 #endif
                         .scrollContentBackground(.hidden)
                         .padding(8)
-                        .frame(minHeight: 180, maxHeight: 200)
+                        .frame(minHeight: promptMinHeight, maxHeight: promptMaxHeight)
                         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8))
                         .overlay(
                             RoundedRectangle(cornerRadius: 8)
@@ -97,7 +124,7 @@ struct PromptView: View {
 #endif
                         .scrollContentBackground(.hidden)
                         .padding(8)
-                        .frame(minHeight: 140, maxHeight: 140)
+                        .frame(minHeight: instructionsMinHeight, maxHeight: instructionsMaxHeight)
                         .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8))
                         .overlay(
                             RoundedRectangle(cornerRadius: 8)
@@ -160,12 +187,12 @@ struct PromptView: View {
                                 .controlSize(.large)
                         }
                     }
-                    .frame(height: 200)
+                    .frame(height: answerHeight)
                     .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
                     .overlay(
                         RoundedRectangle(cornerRadius: 10)
                             .stroke(Color.secondary.opacity(0.2))
-                            .frame(height: 200)
+                            .frame(height: answerHeight)
                     )
                     // Save and Copy buttons under the answer
                     HStack {
@@ -223,7 +250,11 @@ struct PromptView: View {
     private var canCopy: Bool {
         let trimmedPrompt = promptText.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedAnswer = aiAnswer?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        return !trimmedPrompt.isEmpty && !trimmedAnswer.isEmpty
+        if copyIncludeResponse {
+            return !trimmedPrompt.isEmpty && !trimmedAnswer.isEmpty
+        } else {
+            return !trimmedPrompt.isEmpty
+        }
     }
 
     private var canClear: Bool {
@@ -321,8 +352,45 @@ struct PromptView: View {
     }
 
     private func copyTapped() {
-        guard let answer = aiAnswer else { return }
-        _ = ClipboardManager.copy(prompt: promptText, instructions: instructionsText, answer: answer)
+        // Always require a non-empty prompt to copy
+        let prompt = promptText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !prompt.isEmpty else { return }
+
+        let composite: String
+        if !copyIncludeInstructions && !copyIncludeResponse {
+            // Only prompt requested: copy raw prompt content without labels
+            composite = prompt
+        } else {
+            var parts: [String] = []
+            parts.append("Prompt:\n\(prompt)")
+
+            if copyIncludeInstructions {
+                let instr = instructionsText.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !instr.isEmpty {
+                    parts.append("Instructions:\n\(instr)")
+                }
+            }
+
+            if copyIncludeResponse {
+                let answer = aiAnswer?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                if !answer.isEmpty {
+                    parts.append("Response:\n\(answer)")
+                }
+            }
+
+            composite = parts.joined(separator: "\n\n")
+        }
+
+        // Keep existing behavior for potential internal uses
+        _ = ClipboardManager.copy(prompt: promptText, instructions: instructionsText, answer: aiAnswer ?? "")
+
+        // And write the composed string to the system pasteboard as requested
+        #if canImport(UIKit)
+        UIPasteboard.general.string = composite
+        #elseif os(macOS)
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(composite, forType: .string)
+        #endif
     }
 }
 
@@ -408,4 +476,3 @@ private extension View {
     PromptView()
         .modelContainer(for: Item.self, inMemory: true)
 }
-

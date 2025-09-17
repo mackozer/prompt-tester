@@ -1,4 +1,5 @@
 import SwiftUI
+import StoreKit
 #if canImport(UIKit)
 import UIKit
 #endif
@@ -7,6 +8,10 @@ import AppKit
 #endif
 
 struct InfoView: View {
+    @StateObject private var tipStore = TipStore()
+    @AppStorage("copyIncludeInstructions") private var copyIncludeInstructions: Bool = true
+    @AppStorage("copyIncludeResponse") private var copyIncludeResponse: Bool = false
+
     @ViewBuilder
     private var appIconView: some View {
         #if os(macOS)
@@ -54,6 +59,67 @@ struct InfoView: View {
                     .font(.title3)
                     #endif
                     .multilineTextAlignment(.center)
+
+                // Tip section
+                VStack(spacing: 8) {
+                    if tipStore.hasTipped {
+                        HStack(spacing: 8) {
+                            Image(systemName: "heart.fill")
+                                .foregroundStyle(.pink)
+                            Text("Wsparłeś twórcę, dziękuję!")
+                                .font(.headline)
+                        }
+                    } else if let product = tipStore.products.first {
+                        Button {
+                            Task { await tipStore.purchaseTip() }
+                        } label: {
+                            HStack(spacing: 8) {
+                                Image(systemName: "heart.fill")
+                                Text("Tip the Developer")
+                                Text("·")
+                                Text(product.displayPrice)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        Text("One-time tip of \(product.displayPrice)")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Button {
+                            Task { await tipStore.loadProducts() }
+                        } label: {
+                            HStack(spacing: 8) {
+                                Image(systemName: "heart")
+                                Text("Tip the Developer")
+                            }
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(tipStore.isLoading)
+                        Text("One-time tip")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    if let message = tipStore.lastMessage {
+                        Text(message)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding(.top, 4)
+
+                // Settings section
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Settings")
+                        .font(.headline)
+                    Toggle("Copy prompt and instructions", isOn: $copyIncludeInstructions)
+                    Toggle("Also copy response", isOn: $copyIncludeResponse)
+                    #if os(macOS)
+                    .font(.title3)
+                    #endif
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
 
                 VStack(alignment: .center, spacing: 8) {
                     Text("Creator")
