@@ -66,7 +66,7 @@ struct InfoView: View {
                         HStack(spacing: 8) {
                             Image(systemName: "heart.fill")
                                 .foregroundStyle(.pink)
-                            Text("Wsparłeś twórcę, dziękuję!")
+                            Text("Thanks for supporting the developer!")
                                 .font(.headline)
                         }
                     } else if let product = tipStore.products.first {
@@ -168,3 +168,4 @@ struct InfoView: View {
 #Preview {
     InfoView()
 }
+
