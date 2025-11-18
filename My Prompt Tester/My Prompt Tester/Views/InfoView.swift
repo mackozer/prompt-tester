@@ -8,7 +8,7 @@ import AppKit
 #endif
 
 struct InfoView: View {
-    @StateObject private var tipStore = TipStore()
+    @State private var tipStore = TipStore()
     @AppStorage("copyIncludeInstructions") private var copyIncludeInstructions: Bool = true
     @AppStorage("copyIncludeResponse") private var copyIncludeResponse: Bool = false
 
@@ -168,4 +168,3 @@ struct InfoView: View {
 #Preview {
     InfoView()
 }
-

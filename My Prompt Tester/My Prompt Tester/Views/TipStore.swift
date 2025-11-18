@@ -1,23 +1,24 @@
 import Foundation
-import Combine
 import StoreKit
 import SwiftUI
+import Observation
 
 @MainActor
-final class TipStore: ObservableObject {
+@Observable
+final class TipStore {
     // Replace these identifiers with your real product IDs from App Store Connect.
     // Keep them as non-consumable products for a one-time tip.
     private let productIDs: Set<String> = [
         "com.mackozer.MyPromptTester.tip"
     ]
 
-    @Published var products: [Product] = []
-    @Published var isLoading: Bool = false
-    @Published var lastMessage: String? = nil
+    var products: [Product] = []
+    var isLoading: Bool = false
+    var lastMessage: String? = nil
 
     // Persistence for one-time tip state
     private let tippedKey = "hasTippedDeveloper"
-    @Published var hasTipped: Bool = false
+    var hasTipped: Bool = false
 
     init() {
         // Load persisted tip state (fallback)

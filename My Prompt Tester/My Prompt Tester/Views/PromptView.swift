@@ -68,16 +68,12 @@ struct PromptView: View {
     // Parsed Markdown version of the AI answer when available
     private var aiAnswerAttributed: AttributedString? {
         guard let aiAnswer, !aiAnswer.isEmpty else { return nil }
-        if #available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *) {
-            return try? AttributedString(
-                markdown: aiAnswer,
-                options: AttributedString.MarkdownParsingOptions(
-                    interpretedSyntax: .inlineOnly
-                )
+        return try? AttributedString(
+            markdown: aiAnswer,
+            options: AttributedString.MarkdownParsingOptions(
+                interpretedSyntax: .inlineOnly
             )
-        } else {
-            return nil
-        }
+        )
     }
 
     var body: some View {
@@ -140,7 +136,7 @@ struct PromptView: View {
                     }) {
                         Label("Clear", systemImage: "xmark.circle")
                     }
-                    .applyBorderedButtonStyle()
+                    .buttonStyle(.bordered)
                     .disabled(!canClear)
                     
                     Spacer()
@@ -157,7 +153,7 @@ struct PromptView: View {
                             Label(submitButtonTitle, systemImage: "apple.intelligence")
                         }
                     }
-                    .applyPrimaryButtonStyle(isSubmitting: isSubmitting)
+                    .buttonStyle(.borderedProminent)
                     #if os(macOS)
                     // Add Command + Return shortcut on macOS
                     .keyboardShortcut(.return, modifiers: [.command])
@@ -201,7 +197,7 @@ struct PromptView: View {
                         } label: {
                             Label("Save", systemImage: "square.and.arrow.down")
                         }
-                        .applyBorderedButtonStyle()
+                        .buttonStyle(.bordered)
                         .disabled(aiAnswer == nil)
                         
                         Spacer()
@@ -211,7 +207,7 @@ struct PromptView: View {
                         } label: {
                             Label("Copy", systemImage: "doc.on.doc")
                         }
-                        .applyBorderedButtonStyle()
+                        .buttonStyle(.bordered)
                         .disabled(!canCopy)
                     }
                 }
@@ -400,32 +396,16 @@ private struct TabFocusSwitcher: ViewModifier {
     // Accept a FocusState.Binding, not a standard Binding
     var focusedField: FocusState<PromptView.FocusField?>.Binding
 
-    @ViewBuilder
     func body(content: Content) -> some View {
-        if #available(iOS 17.0, macOS 14.0, tvOS 17.0, watchOS 10.0, *) {
-            content
-                // Handle Tab and Shift+Tab with a single handler; inspect modifiers on the press.
-                .onKeyPress(.tab) {
-                    focusNext()
-                    return .handled
-                }
-        } else {
-            content
-        }
+        content
+            // Handle Tab and Shift+Tab with a single handler; inspect modifiers on the press.
+            .onKeyPress(.tab) {
+                focusNext()
+                return .handled
+            }
     }
 
     private func focusNext() {
-        switch focusedField.wrappedValue {
-        case .prompt:
-            focusedField.wrappedValue = .instructions
-        case .instructions:
-            focusedField.wrappedValue = .prompt
-        case .none:
-            focusedField.wrappedValue = .instructions
-        }
-    }
-
-    private func focusPrevious() {
         switch focusedField.wrappedValue {
         case .prompt:
             focusedField.wrappedValue = .instructions
@@ -442,33 +422,10 @@ private extension View {
     @ViewBuilder
     func applyTextInputAutocapitalizationSentences() -> some View {
         #if canImport(UIKit)
-        if #available(iOS 15.0, tvOS 15.0, watchOS 8.0, *) {
-            self.textInputAutocapitalization(SwiftUI.TextInputAutocapitalization.sentences)
-        } else {
-            self
-        }
+        self.textInputAutocapitalization(.sentences)
         #else
-        // macOS and other platforms: TextEditor doesn't support textInputAutocapitalization
         self
         #endif
-    }
-
-    @ViewBuilder
-    func applyPrimaryButtonStyle(isSubmitting: Bool) -> some View {
-        if #available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *) {
-            self.buttonStyle(.automatic)
-        } else {
-            self.buttonStyle(DefaultButtonStyle())
-        }
-    }
-
-    @ViewBuilder
-    func applyBorderedButtonStyle() -> some View {
-        if #available(iOS 15.0, macOS 12.0, tvOS 15.0, watchOS 8.0, *) {
-            self.buttonStyle(.automatic)
-        } else {
-            self.buttonStyle(DefaultButtonStyle())
-        }
     }
 }
 

@@ -12,15 +12,9 @@ struct ContentView: View {
     
     private var isAppleIntelligenceAvailable: Bool {
         #if os(iOS) || os(macOS)
-        if #available(iOS 18.0, macOS 15.0, *) {
-            return SystemLanguageModel.default.availability == .available
-        } else {
-            // Apple Intelligence APIs are not available on earlier systems
-            return false
-        }
+        return SystemLanguageModel.default.availability == .available
         #else
-        // For platforms other than iOS/macOS, treat as available to keep existing behavior
-        return true
+        return false
         #endif
     }
     
@@ -83,6 +77,27 @@ struct ContentView: View {
         #endif
     }
     
+    @ViewBuilder
+    private var imageTab: some View {
+        if isAppleIntelligenceAvailable {
+            #if os(iOS)
+            NavigationStack { SettingsWrapper { ImageView() } }
+            #else
+            ImageView()
+                .toolbar {
+                    ToolbarItem(placement: .automatic) {
+                        SettingsLink {
+                            Image(systemName: "gearshape").imageScale(.medium)
+                        }
+                        .accessibilityLabel("Settings")
+                    }
+                }
+            #endif
+        } else {
+            appleIntelligenceUnavailableView
+        }
+    }
+    
     var body: some View {
         mainTabView
         #if os(macOS)
@@ -95,6 +110,9 @@ struct ContentView: View {
         TabView {
             promptTab
                 .tabItem { Label("Prompt", systemImage: "square.and.pencil") }
+
+            imageTab
+                .tabItem { Label("Image", systemImage: "photo") }
 
             historyTab
                 .tabItem { Label("History", systemImage: "clock") }
@@ -127,4 +145,3 @@ struct ContentView: View {
 #Preview {
     ContentView()
 }
-
