@@ -37,13 +37,36 @@ struct ImageView: View {
         !promptText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isGenerating
     }
 
+    @ViewBuilder
+    private var referencePhotoContent: some View {
+        if isLoadingReferenceImage {
+            ProgressView()
+        } else if let referenceImage {
+            Image(decorative: referenceImage, scale: 1.0, orientation: .up)
+                .resizable()
+                .scaledToFit()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .padding(8)
+        } else {
+            VStack(spacing: 6) {
+                Image(systemName: "photo")
+                    .font(.title3)
+                    .foregroundStyle(.secondary)
+                Text("Optional portrait helps Image Playground personalize people scenes.")
+                    .font(.footnote)
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal)
+            }
+        }
+    }
+
     private let previewCornerRadius: CGFloat = 10
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            promptEditor
+            promptAndReferenceSection
             stylePicker
-            referencePhotoSection
 
             HStack {
                 Button("Clear", systemImage: "xmark.circle", action: clearTapped)
@@ -95,6 +118,23 @@ struct ImageView: View {
             case .failure:
                 errorMessage = "Unable to open the selected file."
             }
+        }
+        #endif
+    }
+
+    @ViewBuilder
+    private var promptAndReferenceSection: some View {
+        #if os(macOS)
+        HStack(alignment: .top, spacing: 20) {
+            promptEditor
+                .frame(maxWidth: .infinity)
+            referencePhotoSection
+                .frame(width: 260)
+        }
+        #else
+        VStack(alignment: .leading, spacing: 16) {
+            promptEditor
+            referencePhotoSection
         }
         #endif
     }
@@ -171,26 +211,21 @@ struct ImageView: View {
         }
     }
 
+    @ViewBuilder
     private var referencePhotoSection: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        #if os(macOS)
+        VStack(alignment: .leading, spacing: 8) {
             Text("Reference Photo")
                 .font(.headline)
                 .foregroundStyle(.secondary)
 
-            HStack(spacing: 12) {
-                #if os(macOS)
+            VStack(alignment: .leading, spacing: 8) {
                 Button {
                     isShowingFileImporter = true
                 } label: {
                     Label("Choose Photo", systemImage: "person.crop.square.badge.plus")
                 }
                 .buttonStyle(.borderedProminent)
-                #else
-                PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
-                    Label("Choose Photo", systemImage: "person.crop.square.badge.plus")
-                }
-                .buttonStyle(.borderedProminent)
-                #endif
 
                 if referenceImage != nil {
                     Button("Remove", systemImage: "trash", action: removeReferenceImage)
@@ -201,32 +236,8 @@ struct ImageView: View {
             ZStack {
                 RoundedRectangle(cornerRadius: 10)
                     .strokeBorder(isDropTargeted ? Color.accentColor : Color.secondary.opacity(0.4), style: StrokeStyle(lineWidth: 1, dash: [6]))
-                    .frame(height: 160)
-                    .overlay(
-                        Group {
-                            if isLoadingReferenceImage {
-                                ProgressView()
-                            } else if let referenceImage {
-                                Image(decorative: referenceImage, scale: 1.0, orientation: .up)
-                                    .resizable()
-                                    .scaledToFit()
-                                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                    .padding(8)
-                            } else {
-                                VStack(spacing: 6) {
-                                    Image(systemName: "photo")
-                                        .font(.title3)
-                                        .foregroundStyle(.secondary)
-                                    Text("Optional portrait helps Image Playground personalize people scenes.")
-                                        .font(.footnote)
-                                        .multilineTextAlignment(.center)
-                                        .foregroundStyle(.secondary)
-                                        .padding(.horizontal)
-                                }
-                            }
-                        }
-                    )
-                    #if os(macOS)
+                    .frame(maxWidth: .infinity, minHeight: 180, maxHeight: 200)
+                    .overlay(referencePhotoContent)
                     .onDrop(of: [.image], isTargeted: $isDropTargeted) { providers in
                         guard let provider = providers.first else { return false }
                         provider.loadDataRepresentation(forTypeIdentifier: UTType.image.identifier) { data, _ in
@@ -236,9 +247,34 @@ struct ImageView: View {
                         }
                         return true
                     }
-                    #endif
             }
         }
+        #else
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Reference Photo")
+                .font(.headline)
+                .foregroundStyle(.secondary)
+
+            PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
+                Label(referenceImage == nil ? "Add Reference Photo" : "Replace Reference Photo", systemImage: "person.crop.square.badge.plus")
+            }
+            .buttonStyle(.borderedProminent)
+
+            if referenceImage != nil || isLoadingReferenceImage {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 10)
+                        .strokeBorder(Color.secondary.opacity(0.4), style: StrokeStyle(lineWidth: 1, dash: [6]))
+                        .frame(height: 160)
+                        .overlay(referencePhotoContent)
+                }
+
+                if referenceImage != nil {
+                    Button("Remove", systemImage: "trash", action: removeReferenceImage)
+                        .buttonStyle(.bordered)
+                }
+            }
+        }
+        #endif
     }
 
     private var canClear: Bool {
