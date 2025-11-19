@@ -10,22 +10,9 @@
 		AA0D71832E6AB9A60034C9BD /* My Prompt Tester.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "My Prompt Tester.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
-/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		AA5D9ADD2ECE0C0C0056113D /* Exceptions for "My Prompt Tester" folder in "My Prompt Tester" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				"My-Prompt-Tester-Info.plist",
-			);
-			target = AA0D71822E6AB9A60034C9BD /* My Prompt Tester */;
-		};
-/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
-
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		AA0D71852E6AB9A60034C9BD /* My Prompt Tester */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				AA5D9ADD2ECE0C0C0056113D /* Exceptions for "My Prompt Tester" folder in "My Prompt Tester" target */,
-			);
 			path = "My Prompt Tester";
 			sourceTree = "<group>";
 		};
@@ -259,7 +246,8 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = MyPromptTesterIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = "My Prompt Tester/My Prompt Tester.entitlements";
+                CODE_SIGN_ENTITLEMENTS = "My Prompt Tester/My Prompt Tester.entitlements";
+                "CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = "My Prompt Tester/My Prompt Tester.mac.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 12;
 				DEVELOPMENT_TEAM = PV5U5TR539;
@@ -307,7 +295,8 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = MyPromptTesterIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
-				CODE_SIGN_ENTITLEMENTS = "My Prompt Tester/My Prompt Tester.entitlements";
+                CODE_SIGN_ENTITLEMENTS = "My Prompt Tester/My Prompt Tester.entitlements";
+                "CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = "My Prompt Tester/My Prompt Tester.mac.entitlements";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 12;
 				DEVELOPMENT_TEAM = PV5U5TR539;

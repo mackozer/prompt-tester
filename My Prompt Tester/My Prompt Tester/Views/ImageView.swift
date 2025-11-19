@@ -31,6 +31,8 @@ struct ImageView: View {
     @State private var isShowingFileImporter: Bool = false
     @State private var isDropTargeted: Bool = false
 #else
+    @State private var isShowingShareSheet: Bool = false
+    @State private var shareImage: UIImage?
     @State private var isShowingPhotosPicker: Bool = false
     @State private var photoPermissionAlertMessage: String = ""
     @State private var isShowingPhotoPermissionAlert: Bool = false
@@ -160,6 +162,11 @@ struct ImageView: View {
         })
         .scrollDismissesKeyboard(.interactively)
         .ignoresSafeArea(.keyboard, edges: .bottom)
+        .sheet(isPresented: $isShowingShareSheet, onDismiss: { shareImage = nil }) {
+            if let shareImage {
+                ShareSheet(items: [shareImage])
+            }
+        }
 #endif
     }
 
@@ -256,6 +263,26 @@ struct ImageView: View {
                 RoundedRectangle(cornerRadius: previewCornerRadius)
                     .stroke(Color.secondary.opacity(0.2))
             )
+
+            HStack(spacing: 12) {
+#if os(macOS)
+                Button {
+                    saveGeneratedImage()
+                } label: {
+                    Label("Save", systemImage: "square.and.arrow.down")
+                }
+                .buttonStyle(.bordered)
+                .disabled(generatedImage == nil)
+#endif
+
+                Button {
+                    shareGeneratedImage()
+                } label: {
+                    Label("Share", systemImage: "square.and.arrow.up")
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(generatedImage == nil)
+            }
         }
     }
 
@@ -431,21 +458,6 @@ struct ImageView: View {
         }
     }
 
-    #if os(macOS)
-    @MainActor
-    private func loadReferenceImage(from url: URL) async {
-        isLoadingReferenceImage = true
-        defer { isLoadingReferenceImage = false }
-        do {
-            let data = try Data(contentsOf: url)
-            referenceImage = makeCGImage(from: data)
-        } catch {
-            referenceImage = nil
-            errorMessage = "Failed to load the selected photo."
-        }
-    }
-    #endif
-
     private func makeCGImage(from data: Data) -> CGImage? {
         #if canImport(UIKit)
         if let uiImage = UIImage(data: data)?.cgImage {
@@ -458,6 +470,68 @@ struct ImageView: View {
         #endif
         return nil
     }
+
+#if os(macOS)
+    @MainActor
+    private func loadReferenceImage(from url: URL) async {
+        isLoadingReferenceImage = true
+        defer { isLoadingReferenceImage = false }
+        do {
+            let data = try Data(contentsOf: url)
+            referenceImage = makeCGImage(from: data)
+        } catch {
+            referenceImage = nil
+            errorMessage = "Failed to load the selected photo."
+        }
+    }
+#endif
+
+#if os(macOS)
+    private func saveGeneratedImage() {
+        guard let generatedImage else { return }
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = "GeneratedImage.png"
+        panel.allowedContentTypes = [.png]
+        panel.begin { response in
+            if response == .OK, let url = panel.url {
+                do {
+                    try writePNG(image: generatedImage, to: url)
+                } catch {
+                    errorMessage = "Failed to save image."
+                }
+            }
+        }
+    }
+#else
+    private func saveGeneratedImage() { }
+#endif
+
+    private func shareGeneratedImage() {
+        guard let generatedImage else { return }
+#if os(macOS)
+        let size = NSSize(width: generatedImage.width, height: generatedImage.height)
+        let nsImage = NSImage(cgImage: generatedImage, size: size)
+        let picker = NSSharingServicePicker(items: [nsImage])
+        if let window = NSApplication.shared.keyWindow,
+           let view = window.contentView {
+            picker.show(relativeTo: view.bounds, of: view, preferredEdge: .maxY)
+        }
+#else
+        let image = UIImage(cgImage: generatedImage)
+        shareImage = image
+        isShowingShareSheet = true
+#endif
+    }
+
+#if os(macOS)
+    private func writePNG(image: CGImage, to url: URL) throws {
+        let rep = NSBitmapImageRep(cgImage: image)
+        guard let data = rep.representation(using: .png, properties: [:]) else {
+            throw NSError(domain: "ImageGenerationService", code: -1)
+        }
+        try data.write(to: url)
+    }
+#endif
 
     #if os(iOS)
     @MainActor
@@ -498,6 +572,18 @@ private struct ButtonStackHeightKey: PreferenceKey {
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
         value = max(value, nextValue())
     }
+}
+#endif
+
+#if os(iOS)
+struct ShareSheet: UIViewControllerRepresentable {
+    let items: [Any]
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: items, applicationActivities: nil)
+    }
+
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) { }
 }
 #endif
 
