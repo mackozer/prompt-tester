@@ -10,10 +10,9 @@ import ImagePlayground
 import PhotosUI
 #if canImport(UIKit)
 import UIKit
+import Photos
 #elseif os(macOS)
 import AppKit
-#endif
-#if os(macOS)
 import UniformTypeIdentifiers
 #endif
 
@@ -31,6 +30,12 @@ struct ImageView: View {
 #if os(macOS)
     @State private var isShowingFileImporter: Bool = false
     @State private var isDropTargeted: Bool = false
+#else
+    @State private var isShowingPhotosPicker: Bool = false
+    @State private var photoPermissionAlertMessage: String = ""
+    @State private var isShowingPhotoPermissionAlert: Bool = false
+    @FocusState private var isPromptFocused: Bool
+    @State private var buttonStackHeight: CGFloat = 120
 #endif
 
     private var canGenerate: Bool {
@@ -48,6 +53,18 @@ struct ImageView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .padding(8)
         } else {
+#if os(iOS)
+            VStack(spacing: 4) {
+                Image(systemName: "photo")
+                    .font(.title2)
+                    .foregroundStyle(.secondary)
+                Text("Add a face photo for personalization.")
+                    .font(.caption)
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal, 4)
+            }
+#else
             VStack(spacing: 6) {
                 Image(systemName: "photo")
                     .font(.title3)
@@ -58,47 +75,51 @@ struct ImageView: View {
                     .foregroundStyle(.secondary)
                     .padding(.horizontal)
             }
+#endif
         }
     }
 
     private let previewCornerRadius: CGFloat = 10
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            promptAndReferenceSection
-            stylePicker
+        ScrollView {
+            VStack(alignment: .leading, spacing: 16) {
+                promptAndReferenceSection
+                stylePicker
 
-            HStack {
-                Button("Clear", systemImage: "xmark.circle", action: clearTapped)
-                    .buttonStyle(.bordered)
-                    .disabled(!canClear)
+                HStack {
+                    Button("Clear", systemImage: "xmark.circle", action: clearTapped)
+                        .buttonStyle(.bordered)
+                        .disabled(!canClear)
 
-                Spacer()
+                    Spacer()
 
-                Button {
-                    if isGenerating {
-                        stopTapped()
-                    } else {
-                        generateTapped()
+                    Button {
+                        if isGenerating {
+                            stopTapped()
+                        } else {
+                            generateTapped()
+                        }
+                    } label: {
+                        Label(isGenerating ? "Stop" : "Generate", systemImage: isGenerating ? "stop.fill" : "sparkles")
                     }
-                } label: {
-                    Label(isGenerating ? "Stop" : "Generate", systemImage: isGenerating ? "stop.fill" : "sparkles")
+                    .buttonStyle(.borderedProminent)
+                    .tint(isGenerating ? .red : nil)
+                    .disabled(!canGenerate && !isGenerating)
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(isGenerating ? .red : nil)
-                .disabled(!canGenerate && !isGenerating)
-            }
 
-            previewSection(height: 360)
+                previewSection(height: 360)
 
-            if let errorMessage {
-                Text(errorMessage)
-                    .font(.footnote)
-                    .foregroundStyle(.red)
-                    .transition(.opacity)
+                if let errorMessage {
+                    Text(errorMessage)
+                        .font(.footnote)
+                        .foregroundStyle(.red)
+                        .transition(.opacity)
+                }
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding()
         }
-        .padding()
         .task {
             await imageService.refreshAvailableStyles()
         }
@@ -110,7 +131,7 @@ struct ImageView: View {
                 await loadReferenceImage(from: newItem)
             }
         }
-        #if os(macOS)
+#if os(macOS)
         .fileImporter(isPresented: $isShowingFileImporter, allowedContentTypes: [.image]) { result in
             switch result {
             case .success(let url):
@@ -119,7 +140,27 @@ struct ImageView: View {
                 errorMessage = "Unable to open the selected file."
             }
         }
-        #endif
+#else
+        .photosPicker(isPresented: $isShowingPhotosPicker, selection: $selectedPhotoItem, matching: .images)
+        .alert("Photo Access Required", isPresented: $isShowingPhotoPermissionAlert) {
+            Button("OK", role: .cancel) { }
+            Button("Open Settings") {
+                if let url = URL(string: UIApplication.openSettingsURLString) {
+                    UIApplication.shared.open(url)
+                }
+            }
+        } message: {
+            Text(photoPermissionAlertMessage)
+        }
+#endif
+#if os(iOS)
+        .contentShape(Rectangle())
+        .simultaneousGesture(TapGesture().onEnded {
+            isPromptFocused = false
+        })
+        .scrollDismissesKeyboard(.interactively)
+        .ignoresSafeArea(.keyboard, edges: .bottom)
+#endif
     }
 
     @ViewBuilder
@@ -148,12 +189,19 @@ struct ImageView: View {
             TextEditor(text: $promptText)
                 .scrollContentBackground(.hidden)
                 .padding(8)
+#if os(iOS)
+                .frame(minHeight: 100, maxHeight: 120)
+#else
                 .frame(minHeight: 180, maxHeight: 260)
+#endif
                 .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8))
                 .overlay(
                     RoundedRectangle(cornerRadius: 8)
                         .stroke(Color.secondary.opacity(0.2))
                 )
+#if os(iOS)
+                .focused($isPromptFocused)
+#endif
         }
     }
 
@@ -255,23 +303,36 @@ struct ImageView: View {
                 .font(.headline)
                 .foregroundStyle(.secondary)
 
-            PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
-                Label(referenceImage == nil ? "Add Reference Photo" : "Replace Reference Photo", systemImage: "person.crop.square.badge.plus")
-            }
-            .buttonStyle(.borderedProminent)
+            HStack(alignment: .top, spacing: 16) {
+                VStack(alignment: .leading, spacing: 10) {
+                    Button {
+                        requestPhotoPermissionAndPresentPicker()
+                    } label: {
+                        Label(referenceImage == nil ? "Add Reference Photo" : "Replace photo", systemImage: "person.crop.square.badge.plus")
+                    }
+                    .buttonStyle(.borderedProminent)
 
-            if referenceImage != nil || isLoadingReferenceImage {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 10)
+                    if referenceImage != nil {
+                        Button("Remove", systemImage: "trash", action: removeReferenceImage)
+                            .buttonStyle(.bordered)
+                    }
+                }
+                .background(
+                    GeometryReader { proxy in
+                        Color.clear
+                            .preference(key: ButtonStackHeightKey.self, value: proxy.size.height)
+                    }
+                )
+
+                Spacer()
+
+                ZStack(alignment: .center) {
+                    RoundedRectangle(cornerRadius: 12)
                         .strokeBorder(Color.secondary.opacity(0.4), style: StrokeStyle(lineWidth: 1, dash: [6]))
-                        .frame(height: 160)
+                        .background(RoundedRectangle(cornerRadius: 12).fill(Color.clear))
                         .overlay(referencePhotoContent)
                 }
-
-                if referenceImage != nil {
-                    Button("Remove", systemImage: "trash", action: removeReferenceImage)
-                        .buttonStyle(.bordered)
-                }
+                .frame(width: buttonStackHeight, height: buttonStackHeight)
             }
         }
         #endif
@@ -397,6 +458,32 @@ struct ImageView: View {
         #endif
         return nil
     }
+
+    #if os(iOS)
+    @MainActor
+    private func requestPhotoPermissionAndPresentPicker() {
+        let status = PHPhotoLibrary.authorizationStatus(for: .readWrite)
+        switch status {
+        case .authorized, .limited:
+            isShowingPhotosPicker = true
+        case .notDetermined:
+            Task {
+                let newStatus = await PHPhotoLibrary.requestAuthorization(for: .readWrite)
+                await MainActor.run {
+                    if newStatus == .authorized || newStatus == .limited {
+                        isShowingPhotosPicker = true
+                    } else {
+                        photoPermissionAlertMessage = "Please allow photo access in Settings to add a reference image."
+                        isShowingPhotoPermissionAlert = true
+                    }
+                }
+            }
+        default:
+            photoPermissionAlertMessage = "Please allow photo access in Settings to add a reference image."
+            isShowingPhotoPermissionAlert = true
+        }
+    }
+    #endif
 }
 
 private extension ImagePlaygroundStyle {
@@ -404,6 +491,15 @@ private extension ImagePlaygroundStyle {
         String(describing: self.id).replacingOccurrences(of: "_", with: " ").capitalized
     }
 }
+
+#if os(iOS)
+private struct ButtonStackHeightKey: PreferenceKey {
+    static var defaultValue: CGFloat = 120
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
+    }
+}
+#endif
 
 #Preview {
     ImageView()
