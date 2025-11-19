@@ -7,6 +7,15 @@
 
 import SwiftUI
 import ImagePlayground
+import PhotosUI
+#if canImport(UIKit)
+import UIKit
+#elseif os(macOS)
+import AppKit
+#endif
+#if os(macOS)
+import UniformTypeIdentifiers
+#endif
 
 struct ImageView: View {
     @State private var imageService = ImageGenerationService()
@@ -16,6 +25,13 @@ struct ImageView: View {
     @State private var isGenerating: Bool = false
     @State private var errorMessage: String?
     @State private var currentTask: Task<Void, Never>?
+    @State private var selectedPhotoItem: PhotosPickerItem?
+    @State private var referenceImage: CGImage?
+    @State private var isLoadingReferenceImage: Bool = false
+#if os(macOS)
+    @State private var isShowingFileImporter: Bool = false
+    @State private var isDropTargeted: Bool = false
+#endif
 
     private var canGenerate: Bool {
         !promptText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isGenerating
@@ -27,6 +43,7 @@ struct ImageView: View {
         VStack(alignment: .leading, spacing: 16) {
             promptEditor
             stylePicker
+            referencePhotoSection
 
             HStack {
                 Button("Clear", systemImage: "xmark.circle", action: clearTapped)
@@ -65,6 +82,21 @@ struct ImageView: View {
         .onChange(of: imageService.availableStyles) { _ in
             clampSelectedStyleIndex()
         }
+        .onChange(of: selectedPhotoItem) { newItem in
+            Task {
+                await loadReferenceImage(from: newItem)
+            }
+        }
+        #if os(macOS)
+        .fileImporter(isPresented: $isShowingFileImporter, allowedContentTypes: [.image]) { result in
+            switch result {
+            case .success(let url):
+                Task { await loadReferenceImage(from: url) }
+            case .failure:
+                errorMessage = "Unable to open the selected file."
+            }
+        }
+        #endif
     }
 
     private var promptEditor: some View {
@@ -139,9 +171,79 @@ struct ImageView: View {
         }
     }
 
+    private var referencePhotoSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Reference Photo")
+                .font(.headline)
+                .foregroundStyle(.secondary)
+
+            HStack(spacing: 12) {
+                #if os(macOS)
+                Button {
+                    isShowingFileImporter = true
+                } label: {
+                    Label("Choose Photo", systemImage: "person.crop.square.badge.plus")
+                }
+                .buttonStyle(.borderedProminent)
+                #else
+                PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
+                    Label("Choose Photo", systemImage: "person.crop.square.badge.plus")
+                }
+                .buttonStyle(.borderedProminent)
+                #endif
+
+                if referenceImage != nil {
+                    Button("Remove", systemImage: "trash", action: removeReferenceImage)
+                        .buttonStyle(.bordered)
+                }
+            }
+
+            ZStack {
+                RoundedRectangle(cornerRadius: 10)
+                    .strokeBorder(isDropTargeted ? Color.accentColor : Color.secondary.opacity(0.4), style: StrokeStyle(lineWidth: 1, dash: [6]))
+                    .frame(height: 160)
+                    .overlay(
+                        Group {
+                            if isLoadingReferenceImage {
+                                ProgressView()
+                            } else if let referenceImage {
+                                Image(decorative: referenceImage, scale: 1.0, orientation: .up)
+                                    .resizable()
+                                    .scaledToFit()
+                                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                    .padding(8)
+                            } else {
+                                VStack(spacing: 6) {
+                                    Image(systemName: "photo")
+                                        .font(.title3)
+                                        .foregroundStyle(.secondary)
+                                    Text("Optional portrait helps Image Playground personalize people scenes.")
+                                        .font(.footnote)
+                                        .multilineTextAlignment(.center)
+                                        .foregroundStyle(.secondary)
+                                        .padding(.horizontal)
+                                }
+                            }
+                        }
+                    )
+                    #if os(macOS)
+                    .onDrop(of: [.image], isTargeted: $isDropTargeted) { providers in
+                        guard let provider = providers.first else { return false }
+                        provider.loadDataRepresentation(forTypeIdentifier: UTType.image.identifier) { data, _ in
+                            if let data, let cgImage = makeCGImage(from: data) {
+                                Task { @MainActor in referenceImage = cgImage }
+                            }
+                        }
+                        return true
+                    }
+                    #endif
+            }
+        }
+    }
+
     private var canClear: Bool {
         let hasPrompt = !promptText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        return hasPrompt || generatedImage != nil || isGenerating
+        return hasPrompt || generatedImage != nil || isGenerating || referenceImage != nil
     }
 
     private func generateTapped() {
@@ -151,6 +253,7 @@ struct ImageView: View {
 
         let prompt = promptText
         let style = styleForSelection()
+        let referenceImage = referenceImage
 
         currentTask = Task {
             defer {
@@ -161,7 +264,7 @@ struct ImageView: View {
             }
 
             do {
-                let image = try await imageService.generateImage(from: prompt, style: style)
+                let image = try await imageService.generateImage(from: prompt, style: style, referenceImage: referenceImage)
                 if Task.isCancelled { return }
                 generatedImage = image
             } catch {
@@ -185,6 +288,7 @@ struct ImageView: View {
         promptText = ""
         generatedImage = nil
         errorMessage = nil
+        removeReferenceImage()
     }
 
     private func styleForSelection() -> ImagePlaygroundStyle? {
@@ -199,6 +303,63 @@ struct ImageView: View {
         } else if selectedStyleIndex >= imageService.availableStyles.count {
             selectedStyleIndex = 0
         }
+    }
+
+    private func removeReferenceImage() {
+        referenceImage = nil
+        selectedPhotoItem = nil
+        isLoadingReferenceImage = false
+    }
+
+    @MainActor
+    private func loadReferenceImage(from item: PhotosPickerItem?) async {
+        guard let item else {
+            removeReferenceImage()
+            return
+        }
+
+        isLoadingReferenceImage = true
+        defer { isLoadingReferenceImage = false }
+
+        do {
+            if let data = try await item.loadTransferable(type: Data.self),
+               let cgImage = makeCGImage(from: data) {
+                referenceImage = cgImage
+            } else {
+                referenceImage = nil
+            }
+        } catch {
+            referenceImage = nil
+            errorMessage = "Failed to load the selected photo."
+        }
+    }
+
+    #if os(macOS)
+    @MainActor
+    private func loadReferenceImage(from url: URL) async {
+        isLoadingReferenceImage = true
+        defer { isLoadingReferenceImage = false }
+        do {
+            let data = try Data(contentsOf: url)
+            referenceImage = makeCGImage(from: data)
+        } catch {
+            referenceImage = nil
+            errorMessage = "Failed to load the selected photo."
+        }
+    }
+    #endif
+
+    private func makeCGImage(from data: Data) -> CGImage? {
+        #if canImport(UIKit)
+        if let uiImage = UIImage(data: data)?.cgImage {
+            return uiImage
+        }
+        #elseif os(macOS)
+        if let nsImage = NSImage(data: data) {
+            return nsImage.cgImage(forProposedRect: nil, context: nil, hints: nil)
+        }
+        #endif
+        return nil
     }
 }
 

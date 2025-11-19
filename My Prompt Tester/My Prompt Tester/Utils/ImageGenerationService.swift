@@ -45,7 +45,7 @@ final class ImageGenerationService {
         }
     }
 
-    func generateImage(from prompt: String, style: ImageStyle?) async throws -> CGImage {
+    func generateImage(from prompt: String, style: ImageStyle?, referenceImage: CGImage? = nil) async throws -> CGImage {
         let trimmedPrompt = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedPrompt.isEmpty else {
             throw GenerationError.noImageProduced
@@ -59,8 +59,13 @@ final class ImageGenerationService {
                 throw GenerationError.noStylesAvailable
             }
 
+            var concepts: [ImagePlaygroundConcept] = [.text(trimmedPrompt)]
+            if let referenceImage {
+                concepts.append(.image(referenceImage))
+            }
+
             let imageSequence = creator.images(
-                for: [.text(trimmedPrompt)],
+                for: concepts,
                 style: styleToUse,
                 limit: 1
             )
