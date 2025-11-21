@@ -37,11 +37,20 @@ struct ImageView: View {
     @State private var photoPermissionAlertMessage: String = ""
     @State private var isShowingPhotoPermissionAlert: Bool = false
     @FocusState private var isPromptFocused: Bool
-    @State private var buttonStackHeight: CGFloat = 120
+    @State private var isShowingStylePickerSheet: Bool = false
+    private let referencePhotoPreviewSize: CGFloat = 100
 #endif
 
     private var canGenerate: Bool {
         !promptText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isGenerating
+    }
+
+    private var currentStyleName: String {
+        guard selectedStyleIndex >= 0,
+              imageService.availableStyles.indices.contains(selectedStyleIndex) else {
+            return "Automatic"
+        }
+        return imageService.availableStyles[selectedStyleIndex].displayName
     }
 
     @ViewBuilder
@@ -111,13 +120,6 @@ struct ImageView: View {
                 }
 
                 previewSection(height: 360)
-
-                if let errorMessage {
-                    Text(errorMessage)
-                        .font(.footnote)
-                        .foregroundStyle(.red)
-                        .transition(.opacity)
-                }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding()
@@ -219,7 +221,47 @@ struct ImageView: View {
                 Text("Style")
                     .font(.headline)
                     .foregroundStyle(.secondary)
-
+#if os(iOS)
+                Button {
+                    isShowingStylePickerSheet = true
+                } label: {
+                    HStack {
+                        Text(currentStyleName)
+                            .fontWeight(.semibold)
+                        Spacer()
+                        Image(systemName: "chevron.up.chevron.down")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.vertical, 12)
+                    .padding(.horizontal, 14)
+                    .frame(maxWidth: .infinity)
+                    .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Color.secondary.opacity(0.2))
+                    )
+                }
+                .buttonStyle(.plain)
+                .sheet(isPresented: $isShowingStylePickerSheet) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Choose a Style")
+                            .font(.headline)
+                        Picker("", selection: $selectedStyleIndex) {
+                            Text("Automatic").tag(-1)
+                            ForEach(Array(imageService.availableStyles.enumerated()), id: \.offset) { index, style in
+                                Text(style.displayName)
+                                    .tag(index)
+                            }
+                        }
+                        .pickerStyle(.wheel)
+                        .labelsHidden()
+                    }
+                    .padding()
+                    .presentationDragIndicator(.visible)
+                    .presentationDetents([.fraction(0.3)])
+                }
+#else
                 Picker("", selection: $selectedStyleIndex) {
                     Text("Automatic").tag(-1)
                     ForEach(Array(imageService.availableStyles.enumerated()), id: \.offset) { index, style in
@@ -229,6 +271,7 @@ struct ImageView: View {
                 }
                 .pickerStyle(.segmented)
                 .labelsHidden()
+#endif
             }
         }
     }
@@ -240,22 +283,8 @@ struct ImageView: View {
                 .foregroundStyle(.secondary)
 
             ZStack {
-                Group {
-                    if let image = generatedImage {
-                        Image(decorative: image, scale: 1.0, orientation: .up)
-                            .resizable()
-                            .scaledToFit()
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    } else {
-                        ContentUnavailableView("No image generated", systemImage: "photo", description: Text("Enter a prompt and tap Generate."))
-                    }
-                }
-                .padding()
-
-                if isGenerating {
-                    ProgressView()
-                        .controlSize(.large)
-                }
+                previewContent
+                    .padding()
             }
             .frame(height: height)
             .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: previewCornerRadius))
@@ -283,6 +312,40 @@ struct ImageView: View {
                 .buttonStyle(.borderedProminent)
                 .disabled(generatedImage == nil)
             }
+        }
+    }
+
+    @ViewBuilder
+    private var previewContent: some View {
+        if isGenerating {
+            VStack(spacing: 12) {
+                ProgressView("Generating image...")
+                    .controlSize(.large)
+                Text("Hang tight while we create your image.")
+                    .font(.footnote)
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+        } else if let image = generatedImage {
+            Image(decorative: image, scale: 1.0, orientation: .up)
+                .resizable()
+                .scaledToFit()
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else if let errorMessage {
+            VStack(spacing: 8) {
+                Image(systemName: "exclamationmark.triangle")
+                    .font(.title2)
+                    .foregroundStyle(.yellow)
+                Text(errorMessage)
+                    .font(.footnote)
+                    .multilineTextAlignment(.center)
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+        } else {
+            ContentUnavailableView("No image generated", systemImage: "photo", description: Text("Enter a prompt and tap Generate."))
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
         }
     }
 
@@ -331,39 +394,43 @@ struct ImageView: View {
                 .foregroundStyle(.secondary)
 
             HStack(alignment: .top, spacing: 16) {
-                VStack(alignment: .leading, spacing: 10) {
-                    Button {
-                        requestPhotoPermissionAndPresentPicker()
-                    } label: {
-                        Label(referenceImage == nil ? "Add Reference Photo" : "Replace photo", systemImage: "person.crop.square.badge.plus")
-                    }
-                    .buttonStyle(.borderedProminent)
-
-                    if referenceImage != nil {
-                        Button("Remove", systemImage: "trash", action: removeReferenceImage)
-                            .buttonStyle(.bordered)
-                    }
-                }
-                .background(
-                    GeometryReader { proxy in
-                        Color.clear
-                            .preference(key: ButtonStackHeightKey.self, value: proxy.size.height)
-                    }
-                )
-
-                Spacer()
-
-                ZStack(alignment: .center) {
-                    RoundedRectangle(cornerRadius: 12)
-                        .strokeBorder(Color.secondary.opacity(0.4), style: StrokeStyle(lineWidth: 1, dash: [6]))
-                        .background(RoundedRectangle(cornerRadius: 12).fill(Color.clear))
-                        .overlay(referencePhotoContent)
-                }
-                .frame(width: buttonStackHeight, height: buttonStackHeight)
+                referencePhotoButtons
+                Spacer(minLength: 0)
+                referencePhotoPreviewBox
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         #endif
     }
+
+#if os(iOS)
+    @ViewBuilder
+    private var referencePhotoButtons: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Button {
+                requestPhotoPermissionAndPresentPicker()
+            } label: {
+                Label(referenceImage == nil ? "Add Reference Photo" : "Replace photo", systemImage: "person.crop.square.badge.plus")
+            }
+            .buttonStyle(.borderedProminent)
+
+            if referenceImage != nil {
+                Button("Remove", systemImage: "trash", action: removeReferenceImage)
+                    .buttonStyle(.bordered)
+            }
+        }
+    }
+
+    private var referencePhotoPreviewBox: some View {
+        ZStack(alignment: .center) {
+            RoundedRectangle(cornerRadius: 12)
+                .strokeBorder(Color.secondary.opacity(0.4), style: StrokeStyle(lineWidth: 1, dash: [6]))
+                .background(RoundedRectangle(cornerRadius: 12).fill(Color.clear))
+                .overlay(referencePhotoContent)
+        }
+        .frame(width: referencePhotoPreviewSize, height: referencePhotoPreviewSize)
+    }
+#endif
 
     private var canClear: Bool {
         let hasPrompt = !promptText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -476,6 +543,14 @@ struct ImageView: View {
     private func loadReferenceImage(from url: URL) async {
         isLoadingReferenceImage = true
         defer { isLoadingReferenceImage = false }
+
+        let didStartAccessing = url.startAccessingSecurityScopedResource()
+        defer {
+            if didStartAccessing {
+                url.stopAccessingSecurityScopedResource()
+            }
+        }
+
         do {
             let data = try Data(contentsOf: url)
             referenceImage = makeCGImage(from: data)
@@ -565,15 +640,6 @@ private extension ImagePlaygroundStyle {
         String(describing: self.id).replacingOccurrences(of: "_", with: " ").capitalized
     }
 }
-
-#if os(iOS)
-private struct ButtonStackHeightKey: PreferenceKey {
-    static var defaultValue: CGFloat = 120
-    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
-        value = max(value, nextValue())
-    }
-}
-#endif
 
 #if os(iOS)
 struct ShareSheet: UIViewControllerRepresentable {
